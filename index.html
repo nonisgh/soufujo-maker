@@ -50,7 +50,7 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 /* letter (same layout as the original cover letters); sizes come from the settings panel */
 .page { --fs-date: 11pt; --fs-org: 11pt; --fs-name: 13pt; --fs-from: 10pt; --fs-fromname: 11pt;
         --fs-title: 18pt; --fs-body: 11pt; --fs-items: 11pt; --fs-note: 9.5pt;
-        --sp: 1;
+        --sp: 1; --title-ls: 0.4em;
         --gap-top: 28mm; --gap-to: 8mm; --gap-from: 6mm; --gap-title: 20mm; --gap-body: 14mm; --gap-ki: 13mm;
         width: 210mm; height: 297mm; padding: calc(var(--gap-top) * var(--sp)) 25mm 0; overflow: hidden; position: relative;
         font-family: "SoufuSerif"; font-weight: 400; font-size: 11pt; line-height: 1.9; color: #000; }
@@ -65,7 +65,9 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .to .ghost { visibility: hidden; }
 .from { margin: calc(var(--gap-from) * var(--sp)) 0 0 auto; width: max-content; line-height: 1.75; font-size: var(--fs-from); }
 .from .name { font-size: var(--fs-fromname); }
-h1 { text-align: center; font-size: var(--fs-title); font-weight: 600; letter-spacing: 0.4em; margin: calc(var(--gap-title) * var(--sp)) 0 0 0.4em; line-height: 1.4; }
+/* title letter spacing: set by the mode / size panel, and narrowed automatically on long letters */
+h1 { --ls: calc(var(--title-ls) * (0.25 + 0.75 * var(--sp)));
+     text-align: center; font-size: var(--fs-title); font-weight: 600; letter-spacing: var(--ls); margin: calc(var(--gap-title) * var(--sp)) 0 0 var(--ls); line-height: 1.4; }
 .body { margin-top: calc(var(--gap-body) * var(--sp)); text-align: justify; font-size: var(--fs-body);
         /* 1.8 normally; long letters tighten it with the spacing, but never below 1.65 so it stays easy to read */
         line-height: calc(1.55 + 0.25 * var(--sp)); }
@@ -74,7 +76,10 @@ h1 { text-align: center; font-size: var(--fs-title); font-weight: 600; letter-sp
 .keigu { text-align: right; margin-top: 1mm; }
 .ki { text-align: center; margin-top: calc(var(--gap-ki) * var(--sp)); font-size: var(--fs-items); }
 ol { list-style: none; margin: calc(6mm * var(--sp)) 0 0 12mm; padding: 0; width: 134mm; font-size: var(--fs-items); }
-ol li { display: flex; line-height: calc(1.6 + 0.6 * var(--sp)); border-bottom: 0.5pt dotted #888; }
+/* Row height stays 2.2em for one line (less on long letters); a long item name wraps with normal line spacing
+   at phrase boundaries instead of in the middle of a word. */
+ol li { display: flex; line-height: 1.5; padding: calc((0.1 + 0.6 * var(--sp)) * 0.5em) 0; border-bottom: 0.5pt dotted #888; }
+ol li .item { word-break: auto-phrase; overflow-wrap: anywhere; padding-right: 3mm; }
 /* line options from the settings panel */
 .page.to-noline .to { border-bottom: none; }
 .page.items-solid ol li { border-bottom: 0.5pt solid #888; }
@@ -129,6 +134,13 @@ ol li .qty { width: 16mm; flex: none; text-align: right; }
     <details id="listBox">
       <summary>書き方の設定</summary>
       <div class="grid">
+        <label for="mode">モード</label>
+        <select id="mode">
+          <option value="relaxed">ゆったり（標準）</option>
+          <option value="formal">フォーマル</option>
+          <option value="compact">コンパクト</option>
+          <option value="custom" disabled>カスタム</option>
+        </select>
         <label for="renmei">連名の書き方</label>
         <select id="renmei">
           <option value="full">全員フルネーム</option>
@@ -157,7 +169,7 @@ ol li .qty { width: 16mm; flex: none; text-align: right; }
           <option value="none">なし</option>
         </select>
       </div>
-      <div class="hint">送付状データに「番号：①」「連名：姓を省く」のように書くと、そちらが優先されます。</div>
+      <div class="hint">モードを選ぶと、文字の大きさ・タイトルの字の間・間かくがまとめて変わります。そのあと細かく変えると「カスタム」になります。送付状データに「番号：①」「連名：姓を省く」のように書くと、そちらが優先されます。</div>
     </details>
 
     <details id="sizeBox">
@@ -235,6 +247,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 - 本文：「拝啓」の段落から始める（【入力】で拝啓が「なし」なら、拝啓の段落を書かずに用件から始める）。
   「敬具」は書かない（拝啓で始まっていれば自動で入る）。段落の頭の字下げも不要（自動）
 - 同封物：1行に1つ。「名前｜数量」の形（｜は全角の縦線）。番号は書かない（自動）
+  名前が長いときは、区切りのいいところに「//」を入れると、そこで改行される（例：ゲームソフト「○○」//ダウンロードカード｜1枚）
 - 番号：同封物の番号の形を変えたいときだけ書く（1. ／（1）／① ／i. ／I. ／a. ／・ ／なし）。書かなければ送付状メーカーの設定どおり
 - 備考：同封物の下に小さく入る補足（例：問い合わせ先の案内）。なくてもよい
 
@@ -273,6 +286,7 @@ const SIZES = [
   ["--fs-body", "本文", 11],
   ["--fs-items", "記・同封物", 11],
   ["--fs-note", "備考", 9.5],
+  ["--title-ls", "タイトルの字の間", 0.4, "字", 0.05],
 ];
 const SENDER_KEYS = ["郵便番号", "住所", "氏名", "電話"];
 
@@ -358,6 +372,11 @@ function listStyleKey(v) {
   if (/^1[.．]?$/.test(s)) return "1.";
   return null;
 }
+
+// Manual line breaks: "<br>" anywhere, and also "//" inside an enclosure name (not in body/notes, where URLs may have "//").
+const BR = /&lt;br\s*\/?&gt;/gi;
+const escBr = s => esc(s).replace(BR, "<br>");
+const escItem = s => escBr(s).replace(/\s*(\/\/|／／)\s*/g, "<br>");
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -528,14 +547,14 @@ function render() {
     <div class="from">${fromLines.join("<br>")}</div>
     <h1>${esc(title)}</h1>
     <div class="body">
-      ${f.body.map((p, i) => `<p class="${i === 0 && opening ? "first" : ""}">${esc(p)}</p>`).join("\n")}
+      ${f.body.map((p, i) => `<p class="${i === 0 && opening ? "first" : ""}">${escBr(p)}</p>`).join("\n")}
       ${closing ? `<div class="keigu">${closing}</div>` : ""}
     </div>`;
   if (f.items.length) {
     const marker = LIST_STYLES[listStyleKey(f["番号"]) || document.getElementById("listStyle").value] || LIST_STYLES["1."];
     html += `<div class="ki">記</div><ol>` +
-      f.items.map((it, i) => `<li>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${esc(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`).join("") +
-      `</ol>` + f.notes.map(n => `<div class="note">${esc(n)}</div>`).join("") + `<div class="ijo">以上</div>`;
+      f.items.map((it, i) => `<li>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${escItem(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`).join("") +
+      `</ol>` + f.notes.map(n => `<div class="note">${escBr(n)}</div>`).join("") + `<div class="ijo">以上</div>`;
   }
   html += `<div class="end" id="end"></div>`;
   const page = document.getElementById("page");
@@ -584,27 +603,28 @@ function applySizes() {
   const page = document.getElementById("page");
   for (const [v] of SIZES) {
     const n = parseFloat(document.getElementById("z" + v).value);
-    if (n > 0) page.style.setProperty(v, n + "pt"); else page.style.removeProperty(v);
+    const em = v === "--title-ls";
+    if (em ? n >= 0 : n > 0) page.style.setProperty(v, n + (em ? "em" : "pt")); else page.style.removeProperty(v);
   }
 }
 function saveSizes() {
   const o = {};
   for (const [v, , d] of SIZES) {
     const n = parseFloat(document.getElementById("z" + v).value);
-    if (n > 0 && n !== d) o[v] = n;
+    if (n >= 0 && n !== d) o[v] = n;
   }
   store.set("soufu-sizes", o);
 }
 function resetSizes() {
   for (const [v, , d] of SIZES) document.getElementById("z" + v).value = d;
-  applySizes(); saveSizes(); render();
+  applySizes(); saveSizes(); detectMode(); render();
 }
 function buildSizeGrid() {
   const saved = store.get("soufu-sizes", {});
   const grid = document.getElementById("sizeGrid");
-  grid.innerHTML = SIZES.map(([v, label, d]) =>
-    `<label for="z${v}">${label}</label><span><input type="number" id="z${v}" min="6" max="40" step="0.5" value="${saved[v] ?? d}"><span class="unit">pt</span></span>`).join("");
-  grid.addEventListener("input", () => { applySizes(); saveSizes(); render(); });
+  grid.innerHTML = SIZES.map(([v, label, d, unit = "pt", step = 0.5]) =>
+    `<label for="z${v}">${label}</label><span><input type="number" id="z${v}" min="${unit === "pt" ? 6 : 0}" max="40" step="${step}" value="${saved[v] ?? d}"><span class="unit">${unit}</span></span>`).join("");
+  grid.addEventListener("input", () => { applySizes(); saveSizes(); detectMode(); render(); });
   applySizes();
 }
 
@@ -641,8 +661,37 @@ function buildGapGrid() {
   const grid = document.getElementById("gapGrid");
   grid.innerHTML = GAPS.map(([v, label, d]) =>
     `<label for="g${v}">${label}</label><span><input type="number" id="g${v}" min="0" max="80" step="1" value="${saved[v] ?? d}"><span class="unit">mm</span></span>`).join("");
-  grid.addEventListener("input", () => { applyGaps(); saveGaps(); render(); });
+  grid.addEventListener("input", () => { applyGaps(); saveGaps(); detectMode(); render(); });
   applyGaps();
+}
+
+// --- modes: preset sizes (pt), title spacing (字), and gaps (mm) ---
+const MODES = {
+  relaxed: { sizes: {}, gaps: {} }, // the defaults
+  formal: {
+    sizes: { "--fs-org": 11.5, "--fs-name": 14, "--fs-from": 10.5, "--fs-fromname": 11.5, "--title-ls": 0.6 },
+    gaps: { "--gap-top": 30, "--gap-to": 10, "--gap-from": 8, "--gap-title": 24, "--gap-body": 16, "--gap-ki": 14 },
+  },
+  compact: {
+    sizes: { "--fs-date": 10.5, "--fs-org": 10.5, "--fs-name": 12, "--fs-from": 9.5, "--fs-fromname": 10.5,
+             "--fs-title": 16, "--fs-body": 10.5, "--fs-items": 10.5, "--fs-note": 9, "--title-ls": 0.15 },
+    gaps: { "--gap-top": 18, "--gap-to": 4, "--gap-from": 3, "--gap-title": 10, "--gap-body": 8, "--gap-ki": 8 },
+  },
+};
+function setModeLabel(m) { document.getElementById("mode").value = m; store.set("soufu-mode", m); }
+// After a manual change, show the preset the current values match, or "custom".
+function detectMode() {
+  const val = id => parseFloat(document.getElementById(id).value);
+  const hit = Object.keys(MODES).find(m =>
+    SIZES.every(([v, , d]) => val("z" + v) === (MODES[m].sizes[v] ?? d)) &&
+    GAPS.every(([v, , d]) => val("g" + v) === (MODES[m].gaps[v] ?? d)));
+  setModeLabel(hit || "custom");
+}
+function applyMode(m) {
+  const p = MODES[m]; if (!p) return;
+  for (const [v, , d] of SIZES) document.getElementById("z" + v).value = p.sizes[v] ?? d;
+  for (const [v, , d] of GAPS) document.getElementById("g" + v).value = p.gaps[v] ?? d;
+  applySizes(); saveSizes(); applyGaps(); saveGaps(); setModeLabel(m); render();
 }
 
 // --- sender ---
@@ -712,6 +761,12 @@ applyLines();
 })();
 buildSizeGrid();
 buildGapGrid();
+(() => {
+  const sel = document.getElementById("mode");
+  sel.value = store.get("soufu-mode", "relaxed");
+  if (!sel.value) sel.value = "relaxed";
+  sel.addEventListener("change", () => applyMode(sel.value));
+})();
 document.fonts.ready.then(render);
 render();
 </script>
