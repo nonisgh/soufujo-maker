@@ -261,6 +261,11 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
           <option value="left">左（住所の頭にそろえる）</option>
           <option value="right">右（住所の終わりにそろえる）</option>
         </select>
+        <label for="fromTel">差出人の電話</label>
+        <select id="fromTel">
+          <option value="left">左（住所の頭にそろえる）</option>
+          <option value="right">右（住所の終わりにそろえる）</option>
+        </select>
         <label for="toLine">宛名の下線</label>
         <select id="toLine">
           <option value="on">あり</option>
@@ -663,7 +668,7 @@ function render() {
     f["郵便番号"] && `〒${esc(f["郵便番号"])}`,
     f["住所"] && `<span class="addr">${esc(f["住所"])}</span>`,
     f["氏名"] && `<span class="name">${esc(f["氏名"])}</span>`,
-    f["電話"] && `電話　${esc(f["電話"])}`,
+    f["電話"] && `<span class="tel">電話　${esc(f["電話"])}</span>`,
   ].filter(Boolean);
 
   const title = f["タイトル"] || "書類送付のご案内";
@@ -805,13 +810,16 @@ function fitPage(page) {
   }
   return used;
 }
-// Sender name on the right: its last character lines up with the last character of the address line.
+// Sender name / phone on the right: their last character lines up with the last character of the address line.
 function alignSenderName(page) {
-  if (document.getElementById("fromName").value !== "right") return;
-  const a = page.querySelector(".from .addr"), n = page.querySelector(".from .name");
-  if (a && n) {
+  const a = page.querySelector(".from .addr");
+  if (!a) return;
+  const aw = a.getBoundingClientRect().width;
+  for (const [id, sel] of [["fromName", ".from .name"], ["fromTel", ".from .tel"]]) {
+    const n = page.querySelector(sel);
+    if (!n || document.getElementById(id).value !== "right") continue;
     n.style.display = "inline-block";
-    n.style.width = Math.max(a.getBoundingClientRect().width, n.getBoundingClientRect().width) + "px";
+    n.style.width = Math.max(aw, n.getBoundingClientRect().width) + "px";
     n.style.textAlign = "right";
   }
 }
@@ -1120,7 +1128,7 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["annex", "soufu-annex"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["annex", "soufu-annex"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
@@ -1386,7 +1394,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["annex", "soufu-annex", "auto"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["annex", "soufu-annex", "auto"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
