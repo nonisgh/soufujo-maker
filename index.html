@@ -65,13 +65,19 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .from { margin: calc(6mm * var(--sp)) 0 0 auto; width: max-content; line-height: 1.75; font-size: var(--fs-from); }
 .from .name { font-size: var(--fs-fromname); }
 h1 { text-align: center; font-size: var(--fs-title); font-weight: 600; letter-spacing: 0.4em; margin: calc(20mm * var(--sp)) 0 0 0.4em; line-height: 1.4; }
-.body { margin-top: calc(14mm * var(--sp)); text-align: justify; font-size: var(--fs-body); }
+.body { margin-top: calc(14mm * var(--sp)); text-align: justify; font-size: var(--fs-body);
+        /* 1.8 normally; long letters tighten it with the spacing, but never below 1.65 so it stays easy to read */
+        line-height: calc(1.55 + 0.25 * var(--sp)); }
 .body p { margin: 0; text-indent: 1em; }
 .body p.first { text-indent: 0; }
 .keigu { text-align: right; margin-top: 1mm; }
 .ki { text-align: center; margin-top: calc(13mm * var(--sp)); font-size: var(--fs-items); }
 ol { list-style: none; margin: calc(6mm * var(--sp)) 0 0 12mm; padding: 0; width: 134mm; font-size: var(--fs-items); }
 ol li { display: flex; line-height: calc(1.6 + 0.6 * var(--sp)); border-bottom: 0.5pt dotted #888; }
+/* line options from the settings panel */
+.page.to-noline .to { border-bottom: none; }
+.page.items-solid ol li { border-bottom: 0.5pt solid #888; }
+.page.items-noline ol li { border-bottom: none; }
 ol li .n { min-width: 8mm; padding-right: 2mm; flex: none; white-space: nowrap; }
 ol li .item { flex: 1; }
 ol li .qty { width: 16mm; flex: none; text-align: right; }
@@ -122,6 +128,17 @@ ol li .qty { width: 16mm; flex: none; text-align: right; }
         <select id="renmei">
           <option value="full">全員フルネーム</option>
           <option value="omit">2人目から姓を省く</option>
+        </select>
+        <label for="toLine">宛名の下線</label>
+        <select id="toLine">
+          <option value="on">あり</option>
+          <option value="off">なし</option>
+        </select>
+        <label for="itemLine">同封物の線</label>
+        <select id="itemLine">
+          <option value="dotted">点線</option>
+          <option value="solid">実線</option>
+          <option value="off">なし</option>
         </select>
         <label for="listStyle">同封物の番号</label>
         <select id="listStyle">
@@ -623,6 +640,21 @@ buildSender();
   if (!r.value) r.value = "full";
   r.addEventListener("change", () => { store.set("soufu-renmei", r.value); render(); });
 })();
+// Underline options: toggle classes on the page so print uses the same look.
+function applyLines() {
+  const page = document.getElementById("page");
+  const to = document.getElementById("toLine").value, it = document.getElementById("itemLine").value;
+  page.classList.toggle("to-noline", to === "off");
+  page.classList.toggle("items-solid", it === "solid");
+  page.classList.toggle("items-noline", it === "off");
+}
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"]]) {
+  const el = document.getElementById(id);
+  el.value = store.get(key, def);
+  if (!el.value) el.value = def;
+  el.addEventListener("change", () => { store.set(key, el.value); applyLines(); render(); });
+}
+applyLines();
 (() => {
   const sel = document.getElementById("listStyle");
   sel.value = store.get("soufu-list", "1.");
