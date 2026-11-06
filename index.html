@@ -211,8 +211,11 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
         <label>郵便番号<input id="s-郵便番号" placeholder="例：123-4567"></label>
         <label>住所<input id="s-住所" placeholder="例：東京都千代田区○○1-2-3"></label>
         <label>建物名<input id="s-建物名" placeholder="例：○○マンション101号（住所の2行目。なければ空欄）"></label>
+        <label>会社名<input id="s-差出人会社名" placeholder="例：株式会社○○（なければ空欄）"></label>
+        <label>部署<input id="s-差出人部署" placeholder="例：総務部（なければ空欄）"></label>
         <label>氏名<input id="s-氏名" placeholder="例：山田　太郎（姓と名のあいだは全角スペース）"></label>
         <label>電話<input id="s-電話" placeholder="例：090-1234-5678"></label>
+        <label>メール<input id="s-メール" placeholder="例：name@example.com（なければ空欄）"></label>
       </div>
       <div class="saved">
         <select id="senderList"></select>
@@ -262,15 +265,21 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
           <option value="left">左（住所の頭にそろえる）</option>
           <option value="right">右（住所の終わりにそろえる）</option>
         </select>
-        <label for="fromName">差出人の名前</label>
+        <label for="fromName">差出人の名前（会社名・部署も）</label>
         <select id="fromName">
           <option value="left">左（住所の頭にそろえる）</option>
           <option value="right">右（住所の終わりにそろえる）</option>
         </select>
-        <label for="fromTel">差出人の電話</label>
+        <label for="fromTel">差出人の電話・メール</label>
         <select id="fromTel">
           <option value="left">左（住所の頭にそろえる）</option>
           <option value="right">右（住所の終わりにそろえる）</option>
+        </select>
+        <label for="mailLabel">メールの見出し</label>
+        <select id="mailLabel">
+          <option value="E-mail">E-mail</option>
+          <option value="メール">メール</option>
+          <option value="Mail">Mail</option>
         </select>
         <label for="toLine">宛名の下線</label>
         <select id="toLine">
@@ -436,7 +445,7 @@ const SIZES = [
   ["--fs-note", "備考", 9.5],
   ["--title-ls", "タイトルの字の間", 0.4, "字", 0.05],
 ];
-const SENDER_KEYS = ["郵便番号", "住所", "建物名", "氏名", "電話"];
+const SENDER_KEYS = ["郵便番号", "住所", "建物名", "差出人会社名", "差出人部署", "氏名", "電話", "メール"];
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -543,7 +552,7 @@ function parse(text) {
     if (key === "本文") { flush(); mode = "body"; if (m[2]) para.push(m[2].trim()); continue; }
     if (key === "同封物") { flush(); mode = "items"; continue; }
     if (key === "備考") { flush(); mode = "notes"; if (m[2]) f.notes.push(m[2].trim()); continue; }
-    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","建物名","氏名","電話","番号","連名","別紙","スタイル","かざり","たぬお"].includes(key))) {
+    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","建物名","差出人会社名","差出人部署","氏名","電話","メール","番号","連名","別紙","スタイル","かざり","たぬお"].includes(key))) {
       flush(); mode = null;
       // A second 宛名： line adds another addressee (連名).
       f[key] = key === "宛名" && f[key] && m[2].trim() ? f[key] + "、" + m[2].trim() : m[2].trim();
@@ -678,8 +687,11 @@ function render() {
       const a2 = [...rest, (f["建物名"] || "").trim()].filter(Boolean).join("　");
       return [a1 && `<span class="addr">${esc(a1)}</span>`, a2 && `<span class="addr addr2">${esc(a2)}</span>`];
     })(),
+    f["差出人会社名"] && `<span class="corp">${esc(f["差出人会社名"])}</span>`,
+    f["差出人部署"] && `<span class="corp">${esc(f["差出人部署"])}</span>`,
     f["氏名"] && `<span class="name">${esc(f["氏名"])}</span>`,
-    f["電話"] && `<span class="tel">電話　${esc(f["電話"])}</span>`,
+    f["電話"] && `<span class="tel">電話: ${esc(f["電話"])}</span>`,
+    f["メール"] && `<span class="tel">${esc(document.getElementById("mailLabel").value)}: ${esc(f["メール"])}</span>`,
   ].filter(Boolean);
 
   const title = f["タイトル"] || "書類送付のご案内";
@@ -687,6 +699,16 @@ function render() {
   const dateText = resolveDate(f["日付"]);
   const month = monthOf(dateText);
   f.body = f.body.map(p => p.replace(/[{｛]時候[}｝]/g, SEASON[month][0] + "の候"));
+  // {会社} {部署} {氏名} … in the body / notes become the sender's own details (see SENDER_TAGS).
+  f.tagMissing = new Set();
+  const fillTags = t => t.replace(/[{｛]([^{}｛｝]{1,6})[}｝]/g, (all, name) => {
+    const key = SENDER_TAGS[name];
+    if (!key) return all;
+    if (key === "住所") return [f["住所"], f["建物名"]].filter(Boolean).join("　").replace(/[\s　]*／[\s　]*/g, "　") || (f.tagMissing.add(name), "");
+    return f[key] || (f.tagMissing.add(name), "");
+  });
+  f.body = f.body.map(fillTags);
+  f.notes = f.notes.map(fillTags);
   const seasonWord = f.body.length ? (f.body[0].match(/([^\s　、。]{2})の候/) || [])[1] : null;
   f.seasonWarn = seasonWord && ALL_SEASON.has(seasonWord) && !SEASON[month].includes(seasonWord)
     ? `「${seasonWord}の候」は${month}月には合いません（${month}月なら「${SEASON[month][0]}の候」など）。本文に {時候} と書くと自動で入ります。` : "";
@@ -756,6 +778,9 @@ function render() {
   onLocalChange();
 }
 
+// Placeholders for the sender's details, usable in the body and the notes.
+const SENDER_TAGS = { "会社": "差出人会社名", "会社名": "差出人会社名", "部署": "差出人部署", "氏名": "氏名", "名前": "氏名",
+  "電話": "電話", "メール": "メール", "住所": "住所", "郵便番号": "郵便番号" };
 let fitted = 1, fitted2 = 1, annexUsed = false, shortLines = { fixed: 0, left: 0 };
 // Width of the last line of a paragraph, in em.
 function lastLineEm(p) {
@@ -827,12 +852,13 @@ function alignSenderName(page) {
   const as = [...page.querySelectorAll(".from .addr")];
   if (!as.length) return;
   const aw = Math.max(...as.map(a => a.getBoundingClientRect().width));
-  for (const [id, sel] of [["fromAddr2", ".from .addr2"], ["fromName", ".from .name"], ["fromTel", ".from .tel"]]) {
-    const n = page.querySelector(sel);
-    if (!n || document.getElementById(id).value !== "right") continue;
-    n.style.display = "inline-block";
-    n.style.width = Math.max(aw, n.getBoundingClientRect().width) + "px";
-    n.style.textAlign = "right";
+  for (const [id, sel] of [["fromAddr2", ".from .addr2"], ["fromName", ".from .name, .from .corp"], ["fromTel", ".from .tel"]]) {
+    if (document.getElementById(id).value !== "right") continue;
+    for (const n of page.querySelectorAll(sel)) {
+      n.style.display = "inline-block";
+      n.style.width = Math.max(aw, n.getBoundingClientRect().width) + "px";
+      n.style.textAlign = "right";
+    }
   }
 }
 
@@ -842,6 +868,7 @@ function check(f, fromCount) {
   if (annexUsed && overflows(document.getElementById("page2"))) msgs.push(`<span class="warn">別紙（2枚目）にも収まっていません。同封物をまとめるか、文字を小さくしてください。</span>`);
   if (!f["宛名"] && !f["会社名"] && !f["部署"]) msgs.push(`<span class="warn">宛名がありません。</span>`);
   if (!fromCount) msgs.push(`<span class="warn">差出人がありません。下の「差出人」に入力してください。</span>`);
+  if (f.tagMissing && f.tagMissing.size) msgs.push(`<span class="warn">本文の ${[...f.tagMissing].map(n => "{" + esc(n) + "}").join(" ")} に入れる差出人の情報がありません。下の「差出人」に入力してください。</span>`);
   if (f.seasonWarn) msgs.push(`<span class="warn">${esc(f.seasonWarn)}</span>`);
   if (!f.body.length) msgs.push(`<span class="warn">本文がありません。</span>`);
   if (shortLines.left) msgs.push(`<span class="warn">最後の行が数文字だけの段落があります（字間をつめても直りませんでした）。少し言葉を足すか減らすと、見た目がよくなります。</span>`);
@@ -1140,7 +1167,7 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["annex", "soufu-annex"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
@@ -1406,7 +1433,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["annex", "soufu-annex", "auto"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
