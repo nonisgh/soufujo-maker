@@ -33,6 +33,7 @@ body { background: #e9e9ec; color: #000; font-family: -apple-system, "Hiragino S
 details { margin-top: 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 8px 12px; }
 summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .grid { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; margin-top: 10px; font-size: 13px; }
+.grid select { font: inherit; padding: 3px 6px; border: 1px solid #bbb; border-radius: 6px; }
 .grid input[type=number] { width: 72px; font: inherit; padding: 3px 6px; border: 1px solid #bbb; border-radius: 6px; }
 .grid .unit { color: #666; margin-left: 4px; }
 .fields { display: grid; gap: 6px; margin-top: 10px; font-size: 13px; }
@@ -65,7 +66,7 @@ h1 { text-align: center; font-size: var(--fs-title); font-weight: 600; letter-sp
 .ki { text-align: center; margin-top: 13mm; font-size: var(--fs-items); }
 ol { list-style: none; margin: 6mm 0 0 12mm; padding: 0; width: 134mm; font-size: var(--fs-items); }
 ol li { display: flex; line-height: 2.2; border-bottom: 0.5pt dotted #888; }
-ol li .n { width: 8mm; flex: none; }
+ol li .n { min-width: 8mm; padding-right: 2mm; flex: none; white-space: nowrap; }
 ol li .item { flex: 1; }
 ol li .qty { width: 16mm; flex: none; text-align: right; }
 .note { margin: 5mm 0 0 12mm; width: 134mm; font-size: var(--fs-note); line-height: 1.8; text-indent: -1em; padding-left: 1em; }
@@ -101,6 +102,24 @@ ol li .qty { width: 16mm; flex: none; text-align: right; }
         <label>電話<input id="s-電話" placeholder="例：090-1234-5678"></label>
       </div>
       <div class="hint">このブラウザにだけ保存されます。送付状データに「氏名：」などを書くと、そちらが優先されます。空欄の行は送付状に出ません。</div>
+    </details>
+
+    <details id="listBox">
+      <summary>同封物の番号</summary>
+      <div class="grid">
+        <label for="listStyle">番号の形</label>
+        <select id="listStyle">
+          <option value="1.">1.　2.　3.</option>
+          <option value="(1)">（1）（2）（3）</option>
+          <option value="①">①　②　③</option>
+          <option value="i.">i.　ii.　iii.</option>
+          <option value="I.">I.　II.　III.</option>
+          <option value="a.">a.　b.　c.</option>
+          <option value="・">・　・　・</option>
+          <option value="none">なし</option>
+        </select>
+      </div>
+      <div class="hint">送付状データに「番号：①」のように書くと、そちらが優先されます。</div>
     </details>
 
     <details id="sizeBox">
@@ -175,6 +194,35 @@ function resolveDate(v) {
   return (!s || /^(today|今日|きょう|本日|ほんじつ)$/i.test(s) || /○/.test(s)) ? todayWareki() : s;
 }
 
+// List markers for the enclosure list.
+function roman(n) {
+  const t = [[1000,"m"],[900,"cm"],[500,"d"],[400,"cd"],[100,"c"],[90,"xc"],[50,"l"],[40,"xl"],[10,"x"],[9,"ix"],[5,"v"],[4,"iv"],[1,"i"]];
+  let s = ""; for (const [v, r] of t) while (n >= v) { s += r; n -= v; } return s;
+}
+const LIST_STYLES = {
+  "1.": n => `${n}.`,
+  "(1)": n => `（${n}）`,
+  "①": n => n <= 20 ? String.fromCharCode(0x2460 + n - 1) : `（${n}）`,
+  "i.": n => `${roman(n)}.`,
+  "I.": n => `${roman(n).toUpperCase()}.`,
+  "a.": n => `${String.fromCharCode(96 + ((n - 1) % 26) + 1)}.`,
+  "・": () => "・",
+  "none": () => "",
+};
+function listStyleKey(v) {
+  const s = (v || "").trim().replace(/[　 ]/g, "");
+  if (!s) return null;
+  if (/^(なし|無し|none)$/i.test(s)) return "none";
+  if (/^[（(]1[)）]$/.test(s)) return "(1)";
+  if (/^①/.test(s)) return "①";
+  if (/^i\.?$/.test(s)) return "i.";
+  if (/^(I|Ⅰ)\.?$/.test(s)) return "I.";
+  if (/^a\.?$/i.test(s)) return "a.";
+  if (/^[・•\-*]$/.test(s)) return "・";
+  if (/^1[.．]?$/.test(s)) return "1.";
+  return null;
+}
+
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // Parse the plain-text format that any AI can produce.
@@ -192,7 +240,7 @@ function parse(text) {
     if (key === "本文") { flush(); mode = "body"; if (m[2]) para.push(m[2].trim()); continue; }
     if (key === "同封物") { flush(); mode = "items"; continue; }
     if (key === "備考") { flush(); mode = "notes"; if (m[2]) f.notes.push(m[2].trim()); continue; }
-    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","氏名","電話"].includes(key))) {
+    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","氏名","電話","番号"].includes(key))) {
       flush(); mode = null; f[key] = m[2].trim(); lastKey = key; continue;
     }
     // A plain line right under 会社名/部署/宛名 continues that field on a new line.
@@ -279,13 +327,19 @@ function render() {
       ${closing ? `<div class="keigu">${closing}</div>` : ""}
     </div>`;
   if (f.items.length) {
+    const marker = LIST_STYLES[listStyleKey(f["番号"]) || document.getElementById("listStyle").value] || LIST_STYLES["1."];
     html += `<div class="ki">記</div><ol>` +
-      f.items.map((it, i) => `<li><span class="n">${i + 1}.</span><span class="item">${esc(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`).join("") +
+      f.items.map((it, i) => `<li>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${esc(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`).join("") +
       `</ol>` + f.notes.map(n => `<div class="note">${esc(n)}</div>`).join("") + `<div class="ijo">以上</div>`;
   }
   html += `<div class="end" id="end"></div>`;
   const page = document.getElementById("page");
   page.innerHTML = html;
+  // Give every marker the width of the widest one so the item names line up (e.g. "i." vs "iii.").
+  const ns = [...page.querySelectorAll("ol li .n")];
+  ns.forEach(n => n.style.width = "auto");
+  const w = Math.max(0, ...ns.map(n => n.getBoundingClientRect().width));
+  ns.forEach(n => n.style.width = w + "px");
   document.title = title + (person ? "_" + person.replace(/[\s　]/g, "") + honor : orgLines.length ? "_" + orgLines[orgLines.length - 1].replace(/[\s　]/g, "") + honor : "");
   check(f, fromLines.length);
   try { localStorage.setItem("soufu-src", raw); } catch (e) {}
@@ -356,6 +410,12 @@ try { saved = localStorage.getItem("soufu-src"); } catch (e) {}
 src.value = saved || SAMPLE;
 src.addEventListener("input", render);
 buildSender();
+(() => {
+  const sel = document.getElementById("listStyle");
+  sel.value = store.get("soufu-list", "1.");
+  if (!sel.value) sel.value = "1.";
+  sel.addEventListener("change", () => { store.set("soufu-list", sel.value); render(); });
+})();
 buildSizeGrid();
 document.fonts.ready.then(render);
 render();
