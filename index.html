@@ -139,7 +139,7 @@ const SAMPLE = `【送付状データ】
 タイトル：首カバー送付のご案内
 
 本文：
-拝啓　晩秋の候、ヌオギドラ様におかれましてはますますご清祥のこととお喜び申し上げます。
+拝啓　{時候}、ヌオギドラ様におかれましてはますますご清祥のこととお喜び申し上げます。
 
 このたびは、四本目の首のご誕生、誠におめでとうございます。
 
@@ -157,6 +157,18 @@ const SAMPLE = `【送付状データ】
 function todayWareki() {
   const d = new Date();
   return `令和${d.getFullYear() - 2018}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+// Seasonal greetings by month. The first one is used for {時候}; all are accepted by the check.
+const SEASON = {
+  1: ["新春", "初春", "厳寒", "寒冷", "大寒"], 2: ["立春", "余寒", "晩冬", "向春"], 3: ["早春", "春暖", "浅春", "春分"],
+  4: ["陽春", "春暖", "桜花", "仲春"], 5: ["新緑", "薫風", "若葉", "晩春"], 6: ["初夏", "梅雨", "入梅", "向暑"],
+  7: ["盛夏", "猛暑", "酷暑", "炎暑"], 8: ["残暑", "晩夏", "立秋", "処暑"], 9: ["初秋", "新秋", "秋晴", "爽秋"],
+  10: ["秋冷", "仲秋", "錦秋", "紅葉"], 11: ["晩秋", "向寒", "深秋", "霜秋"], 12: ["初冬", "師走", "寒冷", "歳晩"],
+};
+const ALL_SEASON = new Set(Object.values(SEASON).flat());
+function monthOf(dateText) {
+  const m = dateText.match(/(\d{1,2})月/);
+  return m ? +m[1] : new Date().getMonth() + 1;
 }
 function resolveDate(v) {
   const s = (v || "").trim();
@@ -246,12 +258,19 @@ function render() {
   ].filter(Boolean);
 
   const title = f["タイトル"] || "書類送付のご案内";
+  // {時候} in the text becomes the greeting for the letter's month.
+  const dateText = resolveDate(f["日付"]);
+  const month = monthOf(dateText);
+  f.body = f.body.map(p => p.replace(/[{｛]時候[}｝]/g, SEASON[month][0] + "の候"));
+  const seasonWord = f.body.length ? (f.body[0].match(/([^\s　、。]{2})の候/) || [])[1] : null;
+  f.seasonWarn = seasonWord && ALL_SEASON.has(seasonWord) && !SEASON[month].includes(seasonWord)
+    ? `「${seasonWord}の候」は${month}月には合いません（${month}月なら「${SEASON[month][0]}の候」など）。本文に {時候} と書くと自動で入ります。` : "";
   // The closing word follows the opening word: 拝啓→敬具, 謹啓→謹白, 前略→草々, none→none.
   const om = f.body.length ? f.body[0].match(/^(拝啓|謹啓|前略)/) : null;
   const opening = om && om[1];
   const closing = { "拝啓": "敬具", "謹啓": "謹白", "前略": "草々" }[opening] || "";
   let html = `
-    <div class="date">${esc(resolveDate(f["日付"]))}</div>
+    <div class="date">${esc(dateText)}</div>
     <div class="to">${toHtml}</div>
     <div class="from">${fromLines.join("<br>")}</div>
     <h1>${esc(title)}</h1>
@@ -279,6 +298,7 @@ function check(f, fromCount) {
   if (overflow) msgs.push(`<span class="warn">1枚に収まっていません。本文を短くするか、文字を小さくしてください。</span>`);
   if (!f["宛名"] && !f["会社名"] && !f["部署"]) msgs.push(`<span class="warn">宛名がありません。</span>`);
   if (!fromCount) msgs.push(`<span class="warn">差出人がありません。下の「差出人」に入力してください。</span>`);
+  if (f.seasonWarn) msgs.push(`<span class="warn">${esc(f.seasonWarn)}</span>`);
   if (!f.body.length) msgs.push(`<span class="warn">本文がありません。</span>`);
   document.fonts.ready.then(() => {
     const ok = document.fonts.check('11pt "SoufuSerif"');
