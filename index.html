@@ -210,6 +210,7 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
       <div class="fields">
         <label>郵便番号<input id="s-郵便番号" placeholder="例：123-4567"></label>
         <label>住所<input id="s-住所" placeholder="例：東京都千代田区○○1-2-3"></label>
+        <label>建物名<input id="s-建物名" placeholder="例：○○マンション101号（住所の2行目。なければ空欄）"></label>
         <label>氏名<input id="s-氏名" placeholder="例：山田　太郎（姓と名のあいだは全角スペース）"></label>
         <label>電話<input id="s-電話" placeholder="例：090-1234-5678"></label>
       </div>
@@ -255,6 +256,11 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
         <select id="tanuo">
           <option value="off">いない</option>
           <option value="on">すみっこにいる</option>
+        </select>
+        <label for="fromAddr2">住所の2行目（建物名）</label>
+        <select id="fromAddr2">
+          <option value="left">左（住所の頭にそろえる）</option>
+          <option value="right">右（住所の終わりにそろえる）</option>
         </select>
         <label for="fromName">差出人の名前</label>
         <select id="fromName">
@@ -430,7 +436,7 @@ const SIZES = [
   ["--fs-note", "備考", 9.5],
   ["--title-ls", "タイトルの字の間", 0.4, "字", 0.05],
 ];
-const SENDER_KEYS = ["郵便番号", "住所", "氏名", "電話"];
+const SENDER_KEYS = ["郵便番号", "住所", "建物名", "氏名", "電話"];
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -537,7 +543,7 @@ function parse(text) {
     if (key === "本文") { flush(); mode = "body"; if (m[2]) para.push(m[2].trim()); continue; }
     if (key === "同封物") { flush(); mode = "items"; continue; }
     if (key === "備考") { flush(); mode = "notes"; if (m[2]) f.notes.push(m[2].trim()); continue; }
-    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","氏名","電話","番号","連名","別紙","スタイル","かざり","たぬお"].includes(key))) {
+    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","建物名","氏名","電話","番号","連名","別紙","スタイル","かざり","たぬお"].includes(key))) {
       flush(); mode = null;
       // A second 宛名： line adds another addressee (連名).
       f[key] = key === "宛名" && f[key] && m[2].trim() ? f[key] + "、" + m[2].trim() : m[2].trim();
@@ -666,7 +672,12 @@ function render() {
 
   const fromLines = [
     f["郵便番号"] && `〒${esc(f["郵便番号"])}`,
-    f["住所"] && `<span class="addr">${esc(f["住所"])}</span>`,
+    // 住所 can also carry the building on a second line after ／ ("…1-2-3／○○マンション101").
+    ...(() => {
+      const [a1, ...rest] = (f["住所"] || "").split("／").map(v => v.trim());
+      const a2 = [...rest, (f["建物名"] || "").trim()].filter(Boolean).join("　");
+      return [a1 && `<span class="addr">${esc(a1)}</span>`, a2 && `<span class="addr addr2">${esc(a2)}</span>`];
+    })(),
     f["氏名"] && `<span class="name">${esc(f["氏名"])}</span>`,
     f["電話"] && `<span class="tel">電話　${esc(f["電話"])}</span>`,
   ].filter(Boolean);
@@ -810,12 +821,13 @@ function fitPage(page) {
   }
   return used;
 }
-// Sender name / phone on the right: their last character lines up with the last character of the address line.
+// Building line / sender name / phone on the right: their last character lines up with the end of the
+// (longest) address line.
 function alignSenderName(page) {
-  const a = page.querySelector(".from .addr");
-  if (!a) return;
-  const aw = a.getBoundingClientRect().width;
-  for (const [id, sel] of [["fromName", ".from .name"], ["fromTel", ".from .tel"]]) {
+  const as = [...page.querySelectorAll(".from .addr")];
+  if (!as.length) return;
+  const aw = Math.max(...as.map(a => a.getBoundingClientRect().width));
+  for (const [id, sel] of [["fromAddr2", ".from .addr2"], ["fromName", ".from .name"], ["fromTel", ".from .tel"]]) {
     const n = page.querySelector(sel);
     if (!n || document.getElementById(id).value !== "right") continue;
     n.style.display = "inline-block";
@@ -1128,7 +1140,7 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["annex", "soufu-annex"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["annex", "soufu-annex"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
@@ -1394,7 +1406,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["annex", "soufu-annex", "auto"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["annex", "soufu-annex", "auto"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
