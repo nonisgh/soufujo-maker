@@ -84,7 +84,8 @@ h1 { --ls: calc(var(--title-ls) * (0.25 + 0.75 * var(--sp)));
 .body p { margin: 0; text-indent: 1em; }
 .body p.first { text-indent: 0; }
 .keigu { text-align: right; margin-top: 1mm; }
-.ki { text-align: center; margin-top: calc(var(--gap-ki) * var(--sp)); font-size: var(--fs-items); }
+/* 記・以上 follow the body size, like 敬具, so the three markers always match */
+.ki { text-align: center; margin-top: calc(var(--gap-ki) * var(--sp)); font-size: var(--fs-body); }
 ol { list-style: none; margin: calc(6mm * var(--sp)) 0 0 12mm; padding: 0; width: 134mm; font-size: var(--fs-items); }
 /* Row height stays 2.2em for one line (less on long letters); a long item name wraps with normal line spacing
    at phrase boundaries instead of in the middle of a word. */
@@ -98,7 +99,7 @@ ol li .n { min-width: 8mm; padding-right: 2mm; flex: none; white-space: nowrap; 
 ol li .item { flex: 1; }
 ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; } /* on the last line when the name wraps */
 .note { margin: calc(5mm * var(--sp)) 0 0 12mm; width: 134mm; font-size: var(--fs-note); line-height: 1.8; text-indent: -1em; padding-left: 1em; }
-.ijo { text-align: right; margin-top: calc(var(--gap-ijo) * var(--sp)); font-size: var(--fs-items); }
+.ijo { text-align: right; margin-top: calc(var(--gap-ijo) * var(--sp)); font-size: var(--fs-body); }
 .end { height: 0; }
 /* 別紙 (page 2): small header so it can be matched with the letter, then the full enclosure list */
 .annex .annex-to { margin-top: calc(4mm * var(--sp)); font-size: var(--fs-org); }
@@ -352,8 +353,8 @@ const SIZES = [
   ["--fs-from", "差出人（住所・電話）", 10],
   ["--fs-fromname", "差出人（名前）", 11],
   ["--fs-title", "タイトル", 18],
-  ["--fs-body", "本文", 11],
-  ["--fs-items", "記・同封物", 11],
+  ["--fs-body", "本文（敬具・記・以上も）", 11],
+  ["--fs-items", "同封物", 11],
   ["--fs-note", "備考", 9.5],
   ["--title-ls", "タイトルの字の間", 0.4, "字", 0.05],
 ];
