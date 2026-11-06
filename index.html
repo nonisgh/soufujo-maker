@@ -40,7 +40,9 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .fields label { display: grid; gap: 2px; }
 .fields input { font: inherit; padding: 5px 8px; border: 1px solid #bbb; border-radius: 6px; }
 .hint { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.5; }
+.papers { display: flex; flex-direction: column; gap: 24px; flex: none; max-width: 100%; }
 .paper { background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.18); flex: none; }
+.paper[hidden] { display: none; }
 @media (max-width: 1100px) {
   .app { flex-direction: column; }
   .editor { width: 100%; position: static; max-height: none; }
@@ -90,6 +92,14 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .note { margin: calc(5mm * var(--sp)) 0 0 12mm; width: 134mm; font-size: var(--fs-note); line-height: 1.8; text-indent: -1em; padding-left: 1em; }
 .ijo { text-align: right; margin-top: calc(4mm * var(--sp)); font-size: var(--fs-items); }
 .end { height: 0; }
+/* 別紙 (page 2): small header so it can be matched with the letter, then the full enclosure list */
+.annex .annex-to { margin-top: calc(4mm * var(--sp)); font-size: var(--fs-org); }
+.annex .annex-from { text-align: right; font-size: var(--fs-org); }
+.annex .annex-to .sama { margin-left: 1em; }
+.annex .annex-to .sama.tight { margin-left: 0; }
+.annex h1 { font-size: calc(var(--fs-title) * 0.85); margin-top: calc(10mm * var(--sp)); }
+.annex ol { margin-top: calc(10mm * var(--sp)); }
+.annexrow .item { flex: 1; }
 
 @media print {
   body { background: #fff; }
@@ -99,7 +109,9 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
   /* The sheet is exactly 297mm on screen; when printing, let it end where the content ends so a browser that adds
      its own margins (Safari, or a print dialog not set to "no margins") does not push the empty bottom onto page 2. */
   html, body, .app, .paper { height: auto; }
+  .papers { display: block; }
   .page { height: auto; overflow: visible; padding-bottom: 0; break-after: avoid; page-break-after: avoid; }
+  .page.annex { break-before: page; page-break-before: always; }
 }
 </style></head>
 <body>
@@ -162,6 +174,12 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
           <option value="solid">実線</option>
           <option value="off">なし</option>
         </select>
+        <label for="annex">同封物の別紙</label>
+        <select id="annex">
+          <option value="auto">入りきらないときだけ</option>
+          <option value="always">いつも別紙にする</option>
+          <option value="off">使わない</option>
+        </select>
         <label for="listStyle">同封物の番号</label>
         <select id="listStyle">
           <option value="1.">1.　2.　3.</option>
@@ -191,7 +209,10 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
       <div class="hint">単位は mm。0 にすると間をあけません。長い送付状では、1枚に収まるように自動で少しつめます。</div>
     </details>
   </div>
-  <div class="paper"><section class="page" id="page"></section></div>
+  <div class="papers">
+    <div class="paper"><section class="page" id="page"></section></div>
+    <div class="paper" id="paper2" hidden><section class="page annex" id="page2"></section></div>
+  </div>
 </div>
 
 <!-- AI_RULES_START -->
@@ -253,6 +274,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
   「敬具」は書かない（拝啓で始まっていれば自動で入る）。段落の頭の字下げも不要（自動）
 - 同封物：1行に1つ。「名前｜数量」の形（｜は全角の縦線）。番号は書かない（自動）
   名前が長いときは、区切りのいいところに「//」を入れると、そこで改行される（例：ゲームソフト「○○」//ダウンロードカード｜1枚）
+- 別紙：同封物を2枚目の「同封書類一覧」に出したいときは「別紙：あり」、出したくないときは「別紙：なし」。書かなければ、入りきらないときだけ自動で別紙になる
 - 番号：同封物の番号の形を変えたいときだけ書く（1. ／（1）／① ／i. ／I. ／a. ／・ ／なし）。書かなければ送付状メーカーの設定どおり
 - 備考：同封物の下に小さく入る補足（例：問い合わせ先の案内）。なくてもよい
 
@@ -400,7 +422,7 @@ function parse(text) {
     if (key === "本文") { flush(); mode = "body"; if (m[2]) para.push(m[2].trim()); continue; }
     if (key === "同封物") { flush(); mode = "items"; continue; }
     if (key === "備考") { flush(); mode = "notes"; if (m[2]) f.notes.push(m[2].trim()); continue; }
-    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","氏名","電話","番号","連名"].includes(key))) {
+    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","氏名","電話","番号","連名","別紙"].includes(key))) {
       flush(); mode = null;
       // A second 宛名： line adds another addressee (連名).
       f[key] = key === "宛名" && f[key] && m[2].trim() ? f[key] + "、" + m[2].trim() : m[2].trim();
@@ -555,51 +577,83 @@ function render() {
       ${f.body.map((p, i) => `<p class="${i === 0 && opening ? "first" : ""}">${escBr(p)}</p>`).join("\n")}
       ${closing ? `<div class="keigu">${closing}</div>` : ""}
     </div>`;
-  if (f.items.length) {
-    const marker = LIST_STYLES[listStyleKey(f["番号"]) || document.getElementById("listStyle").value] || LIST_STYLES["1."];
-    html += `<div class="ki">記</div><ol>` +
-      f.items.map((it, i) => `<li>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${escItem(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`).join("") +
-      `</ol>` + f.notes.map(n => `<div class="note">${escBr(n)}</div>`).join("") + `<div class="ijo">以上</div>`;
-  }
-  html += `<div class="end" id="end"></div>`;
+  const marker = LIST_STYLES[listStyleKey(f["番号"]) || document.getElementById("listStyle").value] || LIST_STYLES["1."];
+  const listHtml = () => `<ol>` +
+    f.items.map((it, i) => `<li>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${escItem(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`).join("") +
+    `</ol>` + f.notes.map(n => `<div class="note">${escBr(n)}</div>`).join("") + `<div class="ijo">以上</div>`;
+  const annexRow = `<ol><li class="annexrow"><span class="item">同封書類</span><span>別紙「同封書類一覧」のとおり</span></li></ol><div class="ijo">以上</div>`;
+  // 別紙: "auto" moves the list to page 2 only when page 1 cannot hold it; the data line 別紙：あり／なし overrides the setting.
+  const av = f["別紙"] || "";
+  const annexSetting = /なし|使わない|off/i.test(av) ? "off" : /あり|いつも|on/i.test(av) ? "always" : /自動|auto/i.test(av) ? "auto" : document.getElementById("annex").value;
   const page = document.getElementById("page");
-  page.innerHTML = html;
-  // Sender name on the right: its last character lines up with the last character of the address line.
-  if (document.getElementById("fromName").value === "right") {
-    const a = page.querySelector(".from .addr"), n = page.querySelector(".from .name");
-    if (a && n) {
-      n.style.display = "inline-block";
-      n.style.width = Math.max(a.getBoundingClientRect().width, n.getBoundingClientRect().width) + "px";
-      n.style.textAlign = "right";
-    }
+  const page2 = document.getElementById("page2");
+  const build = useAnnex => html + (f.items.length ? `<div class="ki">記</div>` + (useAnnex ? annexRow : listHtml()) : "") + `<div class="end"></div>`;
+  let useAnnex = annexSetting === "always" && f.items.length > 0;
+  page.innerHTML = build(useAnnex);
+  alignSenderName(page);
+  fitted = fitPage(page);
+  if (annexSetting === "auto" && overflows(page) && f.items.length > 1) {
+    useAnnex = true;
+    page.innerHTML = build(true);
+    alignSenderName(page);
+    fitted = fitPage(page);
   }
-  // Give every marker the width of the widest one so the item names line up (e.g. "i." vs "iii.").
-  const ns = [...page.querySelectorAll("ol li .n")];
-  ns.forEach(n => n.style.width = "auto");
-  const w = Math.max(0, ...ns.map(n => n.getBoundingClientRect().width));
-  ns.forEach(n => n.style.width = w + "px");
-  // Long letters: tighten the vertical spacing step by step until everything fits on one page.
-  fitted = 1;
-  for (const sp of [1, 0.85, 0.7, 0.55, 0.4]) {
-    page.style.setProperty("--sp", sp);
-    fitted = sp;
-    if (!overflows()) break;
-  }
+  annexUsed = useAnnex;
+  document.getElementById("paper2").hidden = !useAnnex;
+  if (useAnnex) {
+    // Page 2 shares the size / gap / line settings of page 1.
+    page2.style.cssText = page.style.cssText;
+    page2.className = page.className + " annex";
+    const toLine = [...orgLines, (jointHtml ? personLines.join("、") : person)].filter(Boolean).join("　");
+    page2.innerHTML = `
+      <div class="date">${esc(dateText)}</div>
+      <div class="annex-to">${esc(toLine)}${toLine ? `<span class="sama${honor === "各位" ? " tight" : ""}">${esc(jointHtml ? "様" : honor)}</span>` : ""}</div>
+      <div class="annex-from">${esc(f["氏名"] || "")}</div>
+      <h1>別紙　同封書類一覧</h1>
+      ${listHtml()}
+      <div class="end"></div>`;
+    fitted2 = fitPage(page2);
+  } else page2.innerHTML = "";
   document.title = title + (person ? "_" + person.replace(/[\s　]/g, "") + honor : orgLines.length ? "_" + orgLines[orgLines.length - 1].replace(/[\s　]/g, "") + honor : "");
   check(f, fromLines.length);
   try { localStorage.setItem("soufu-src", raw); } catch (e) {}
 }
 
-let fitted = 1;
-function overflows() {
-  const page = document.getElementById("page"), end = document.getElementById("end");
-  return end.getBoundingClientRect().bottom - page.getBoundingClientRect().top > page.clientHeight - 20;
+let fitted = 1, fitted2 = 1, annexUsed = false;
+function overflows(page = document.getElementById("page")) {
+  const end = page.querySelector(".end");
+  return !!end && end.getBoundingClientRect().bottom - page.getBoundingClientRect().top > page.clientHeight - 20;
+}
+// Line up item names, then tighten the vertical spacing step by step until the sheet fits. Returns the factor used.
+function fitPage(page) {
+  // Give every marker the width of the widest one so the item names line up (e.g. "i." vs "iii.").
+  const ns = [...page.querySelectorAll("ol li .n")];
+  ns.forEach(n => n.style.width = "auto");
+  const w = Math.max(0, ...ns.map(n => n.getBoundingClientRect().width));
+  ns.forEach(n => n.style.width = w + "px");
+  let used = 1;
+  for (const sp of [1, 0.85, 0.7, 0.55, 0.4]) {
+    page.style.setProperty("--sp", sp);
+    used = sp;
+    if (!overflows(page)) break;
+  }
+  return used;
+}
+// Sender name on the right: its last character lines up with the last character of the address line.
+function alignSenderName(page) {
+  if (document.getElementById("fromName").value !== "right") return;
+  const a = page.querySelector(".from .addr"), n = page.querySelector(".from .name");
+  if (a && n) {
+    n.style.display = "inline-block";
+    n.style.width = Math.max(a.getBoundingClientRect().width, n.getBoundingClientRect().width) + "px";
+    n.style.textAlign = "right";
+  }
 }
 
 function check(f, fromCount) {
   const msgs = [];
-  const overflow = overflows();
-  if (overflow) msgs.push(`<span class="warn">1枚に収まっていません。本文を短くするか、文字を小さくしてください。</span>`);
+  if (overflows()) msgs.push(`<span class="warn">1枚目に収まっていません。本文を短くするか、文字を小さくしてください。</span>`);
+  if (annexUsed && overflows(document.getElementById("page2"))) msgs.push(`<span class="warn">別紙（2枚目）にも収まっていません。同封物をまとめるか、文字を小さくしてください。</span>`);
   if (!f["宛名"] && !f["会社名"] && !f["部署"]) msgs.push(`<span class="warn">宛名がありません。</span>`);
   if (!fromCount) msgs.push(`<span class="warn">差出人がありません。下の「差出人」に入力してください。</span>`);
   if (f.seasonWarn) msgs.push(`<span class="warn">${esc(f.seasonWarn)}</span>`);
@@ -608,7 +662,9 @@ function check(f, fromCount) {
     const ok = document.fonts.check('11pt "SoufuSerif"');
     const fm = ok ? "" : `<span class="warn">フォントが読みこめていません。このファイルと fonts フォルダを同じ場所に置いてください。</span>`;
     document.getElementById("msg").innerHTML = [...msgs, fm].filter(Boolean).join("<br>") ||
-      `<span class="ok">OK：1枚に収まっています。${fitted < 1 ? "（長いので、余白を自動でつめました）" : ""}</span>`;
+      (annexUsed
+        ? `<span class="ok">OK：同封物の一覧を別紙（2枚目）に出しました。印刷は2枚になります。</span>`
+        : `<span class="ok">OK：1枚に収まっています。${fitted < 1 ? "（長いので、余白を自動でつめました）" : ""}</span>`);
   });
 }
 
@@ -760,7 +816,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["annex", "soufu-annex", "auto"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
