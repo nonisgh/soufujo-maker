@@ -85,6 +85,8 @@ h1 { --ls: calc(var(--title-ls) * (0.25 + 0.75 * var(--sp)));
         line-height: calc(1.55 + 0.25 * var(--sp)); }
 .body p { margin: 0; text-indent: 1em; }
 .body p.first { text-indent: 0; }
+/* half-width comma, used only when a paragraph needs squeezing to avoid a very short last line */
+.body .hw { letter-spacing: -0.5em; }
 .keigu { text-align: right; margin-top: 1mm; }
 /* 記・以上 follow the body size, like 敬具, so the three markers always match */
 .ki { text-align: center; margin-top: calc(var(--gap-ki) * var(--sp)); font-size: var(--fs-body); }
@@ -707,12 +709,14 @@ function render() {
   let useAnnex = annexSetting === "always" && f.items.length > 0;
   page.innerHTML = build(useAnnex);
   alignSenderName(page);
+  shortLines = fixShortLines(page);
   fitted = fitPage(page);
   if (annexSetting === "auto" && overflows(page) && f.items.length > 1) {
     useAnnex = true;
     page.innerHTML = build(true);
     alignSenderName(page);
-    fitted = fitPage(page);
+    shortLines = fixShortLines(page);
+  fitted = fitPage(page);
   }
   annexUsed = useAnnex;
   document.getElementById("paper2").hidden = !useAnnex;
@@ -736,7 +740,52 @@ function render() {
   onLocalChange();
 }
 
-let fitted = 1, fitted2 = 1, annexUsed = false;
+let fitted = 1, fitted2 = 1, annexUsed = false, shortLines = { fixed: 0, left: 0 };
+// Width of the last line of a paragraph, in em.
+function lastLineEm(p) {
+  const r = document.createRange();
+  r.selectNodeContents(p);
+  const rects = [...r.getClientRects()].filter(x => x.width > 0);
+  if (!rects.length) return Infinity;
+  const top = Math.max(...rects.map(x => x.top));
+  const line = rects.filter(x => Math.abs(x.top - top) < 2);
+  const width = Math.max(...line.map(x => x.right)) - Math.min(...line.map(x => x.left));
+  return width / parseFloat(getComputedStyle(p).fontSize);
+}
+const lineCount = p => Math.round(p.getBoundingClientRect().height / parseFloat(getComputedStyle(p).lineHeight));
+// A paragraph whose last line is only a few characters ("す。") looks like an accident.
+// Tighten that paragraph's letter spacing very slightly (at most 0.06em per character, which is hard to see)
+// so the stray characters move up to the line above. If that is not enough, the commas in the paragraph
+// are also set half width (as Japanese typesetting does when it squeezes a line). Returns how many were fixed / not.
+const SHORT_LINE_EM = 4.5;
+function fixShortLines(page) {
+  const res = { fixed: 0, left: 0 };
+  for (const p of page.querySelectorAll(".body p")) {
+    p.style.letterSpacing = "";
+    p.querySelectorAll(".hw").forEach(x => x.replaceWith(x.textContent));
+    p.normalize();
+    if (lastLineEm(p) >= SHORT_LINE_EM) continue;
+    const lines = lineCount(p);
+    if (lines < 2) continue;
+    const plain = p.innerHTML;
+    const tryTighten = () => {
+      for (let i = 1; i <= 12; i++) {
+        p.style.letterSpacing = `-${(i * 0.005).toFixed(3)}em`;
+        if (lineCount(p) < lines) return true;
+      }
+      return false;
+    };
+    let ok = tryTighten();
+    if (!ok && /[、，]/.test(plain)) {
+      p.innerHTML = plain.replace(/[、，]/g, '<span class="hw">$&</span>');
+      ok = tryTighten();
+      if (!ok) p.innerHTML = plain;
+    }
+    if (ok) res.fixed++;
+    else { p.style.letterSpacing = ""; res.left++; }
+  }
+  return res;
+}
 function overflows(page = document.getElementById("page")) {
   const end = page.querySelector(".end");
   return !!end && end.getBoundingClientRect().bottom - page.getBoundingClientRect().top > page.clientHeight - 20;
@@ -775,13 +824,14 @@ function check(f, fromCount) {
   if (!fromCount) msgs.push(`<span class="warn">差出人がありません。下の「差出人」に入力してください。</span>`);
   if (f.seasonWarn) msgs.push(`<span class="warn">${esc(f.seasonWarn)}</span>`);
   if (!f.body.length) msgs.push(`<span class="warn">本文がありません。</span>`);
+  if (shortLines.left) msgs.push(`<span class="warn">最後の行が数文字だけの段落があります（字間をつめても直りませんでした）。少し言葉を足すか減らすと、見た目がよくなります。</span>`);
   document.fonts.ready.then(() => {
     const ok = document.fonts.check('11pt "SoufuSerif"');
     const fm = ok ? "" : `<span class="warn">フォントが読みこめていません。このファイルと fonts フォルダを同じ場所に置いてください。</span>`;
     document.getElementById("msg").innerHTML = [...msgs, fm].filter(Boolean).join("<br>") ||
       (annexUsed
         ? `<span class="ok">OK：同封物の一覧を別紙（2枚目）に出しました。印刷は2枚になります。</span>`
-        : `<span class="ok">OK：1枚に収まっています。${fitted < 1 ? "（長いので、余白を自動でつめました）" : ""}</span>`);
+        : `<span class="ok">OK：1枚に収まっています。${fitted < 1 ? "（長いので、余白を自動でつめました）" : ""}${shortLines.fixed ? "（最後の行が短い段落は、字間を少しつめて前の行に入れました）" : ""}</span>`);
   });
 }
 
