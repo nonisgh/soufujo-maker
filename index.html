@@ -53,7 +53,7 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .page { --fs-date: 11pt; --fs-org: 11pt; --fs-name: 13pt; --fs-from: 10pt; --fs-fromname: 11pt;
         --fs-title: 18pt; --fs-body: 11pt; --fs-items: 11pt; --fs-note: 9.5pt;
         --sp: 1; --title-ls: 0.4em;
-        --gap-top: 28mm; --gap-to: 8mm; --gap-from: 6mm; --gap-title: 20mm; --gap-body: 14mm; --gap-ki: 13mm;
+        --gap-top: 28mm; --gap-to: 8mm; --gap-from: 6mm; --gap-title: 20mm; --gap-body: 14mm; --gap-ki: 13mm; --gap-ijo: 4mm;
         width: 210mm; height: 297mm; padding: calc(var(--gap-top) * var(--sp)) 25mm 0; overflow: hidden; position: relative;
         font-family: "SoufuSerif"; font-weight: 400; font-size: 11pt; line-height: 1.9; color: #000; }
 .date { text-align: right; font-size: var(--fs-date); }
@@ -90,7 +90,7 @@ ol li .n { min-width: 8mm; padding-right: 2mm; flex: none; white-space: nowrap; 
 ol li .item { flex: 1; }
 ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; } /* on the last line when the name wraps */
 .note { margin: calc(5mm * var(--sp)) 0 0 12mm; width: 134mm; font-size: var(--fs-note); line-height: 1.8; text-indent: -1em; padding-left: 1em; }
-.ijo { text-align: right; margin-top: calc(4mm * var(--sp)); font-size: var(--fs-items); }
+.ijo { text-align: right; margin-top: calc(var(--gap-ijo) * var(--sp)); font-size: var(--fs-items); }
 .end { height: 0; }
 /* 別紙 (page 2): small header so it can be matched with the letter, then the full enclosure list */
 .annex .annex-to { margin-top: calc(4mm * var(--sp)); font-size: var(--fs-org); }
@@ -706,6 +706,7 @@ const GAPS = [
   ["--gap-title", "差出人 → タイトル", 20],
   ["--gap-body", "タイトル → 本文", 14],
   ["--gap-ki", "本文 → 記", 13],
+  ["--gap-ijo", "最後の項目 → 以上", 4],
 ];
 function applyGaps() {
   const page = document.getElementById("page");
@@ -740,12 +741,12 @@ const MODES = {
   relaxed: { sizes: {}, gaps: {} }, // the defaults
   formal: {
     sizes: { "--fs-org": 11.5, "--fs-name": 14, "--fs-from": 10.5, "--fs-fromname": 11.5, "--title-ls": 0.6 },
-    gaps: { "--gap-top": 30, "--gap-to": 10, "--gap-from": 8, "--gap-title": 24, "--gap-body": 16, "--gap-ki": 14 },
+    gaps: { "--gap-top": 30, "--gap-to": 10, "--gap-from": 8, "--gap-title": 24, "--gap-body": 16, "--gap-ki": 14, "--gap-ijo": 6 },
   },
   compact: {
     sizes: { "--fs-date": 10.5, "--fs-org": 10.5, "--fs-name": 12, "--fs-from": 9.5, "--fs-fromname": 10.5,
              "--fs-title": 16, "--fs-body": 10.5, "--fs-items": 10.5, "--fs-note": 9, "--title-ls": 0.15 },
-    gaps: { "--gap-top": 18, "--gap-to": 4, "--gap-from": 3, "--gap-title": 10, "--gap-body": 8, "--gap-ki": 8 },
+    gaps: { "--gap-top": 18, "--gap-to": 4, "--gap-from": 3, "--gap-title": 10, "--gap-body": 8, "--gap-ki": 8, "--gap-ijo": 3 },
   },
 };
 function setModeLabel(m) { document.getElementById("mode").value = m; store.set("soufu-mode", m); }
