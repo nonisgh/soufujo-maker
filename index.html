@@ -56,6 +56,7 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .to { font-size: var(--fs-name); margin-top: 8mm; display: inline-block; padding: 0 2mm 0.5mm; border-bottom: 1pt solid #000; line-height: 1.6; }
 .to .org { display: block; font-size: var(--fs-org); }
 .to .sama { margin-left: 6mm; }
+.to .sama.tight { margin-left: 0; }
 .from { margin: 6mm 0 0 auto; width: max-content; line-height: 1.75; font-size: var(--fs-from); }
 .from .name { font-size: var(--fs-fromname); }
 h1 { text-align: center; font-size: var(--fs-title); font-weight: 600; letter-spacing: 0.4em; margin: 20mm 0 0 0.4em; line-height: 1.4; }
@@ -189,7 +190,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 - 会社名：個人あてなら空欄
 - 部署：部署名。なければ空欄
 - 宛名：姓と名のあいだは全角スペース。会社あてで担当者がいないときは空欄
-- 敬称：個人・担当者あては「様」、会社や部署だけにあてるときは「御中」
+- 敬称：個人・担当者あては「様」、会社や部署だけにあてるときは「御中」、複数の人にまとめてあてるときは「各位」（例：宛名「関係者」＋敬称「各位」→ 関係者各位。「各位様」のように重ねない）
 - 本文：「拝啓」の段落から始める（【入力】で拝啓が「なし」なら、拝啓の段落を書かずに用件から始める）。
   「敬具」は書かない（拝啓で始まっていれば自動で入る）。段落の頭の字下げも不要（自動）
 - 同封物：1行に1つ。「名前｜数量」の形（｜は全角の縦線）。番号は書かない（自動）
@@ -381,16 +382,22 @@ function render() {
   const names = split(f["宛名"]);
   let person = names.pop() || "";
   orgLines.push(...names);
-  // Honorific written on the name itself ("BB様", "BBさん", "営業部御中") wins over the 敬称 field.
-  let honor = f["敬称"];
-  const hm = person.match(/^(.*?)[\s　]*(様|さま|さん|殿|御中)$/);
-  if (hm && hm[1]) { person = hm[1]; honor = hm[2] === "御中" ? "御中" : hm[2] === "殿" ? "殿" : "様"; }
+  // Honorific written on the name itself ("BB様", "BBさん", "営業部御中", "関係者各位") wins over the 敬称 field.
+  let honor = (f["敬称"] || "").trim();
+  const hm = person.match(/^(.*?)[\s　]*(様|さま|さん|殿|御中|各位)$/);
+  if (hm && hm[1]) { person = hm[1]; honor = { "御中": "御中", "殿": "殿", "各位": "各位" }[hm[2]] || "様"; }
+  // 各位 is already an honorific: "関係者各位様" → "関係者各位".
+  const km = person.match(/^(.*?)[\s　]*各位$/);
+  if (km && km[1]) { person = km[1]; honor = "各位"; }
+  if (honor === "各位" && !person && orgLines.length) person = orgLines.pop();
   if (hm && honor === "御中") { orgLines.push(person); person = ""; }
   honor = honor || (person ? "様" : "御中");
+  // 各位 is written right after the name with no gap ("関係者各位"); other honorifics keep the gap.
+  const samaHtml = `<span class="sama${honor === "各位" ? " tight" : ""}">${esc(honor)}</span>`;
   const toHtml = person
-    ? orgLines.map(v => `<span class="org">${esc(v)}</span>`).join("") + `${esc(person)}<span class="sama">${esc(honor)}</span>`
+    ? orgLines.map(v => `<span class="org">${esc(v)}</span>`).join("") + `${esc(person)}${samaHtml}`
     : orgLines.map((v, i) => i < orgLines.length - 1 ? `<span class="org">${esc(v)}</span>`
-        : `${esc(v)}<span class="sama">${esc(honor)}</span>`).join("");
+        : `${esc(v)}${samaHtml}`).join("");
 
   const fromLines = [
     f["郵便番号"] && `〒${esc(f["郵便番号"])}`,
