@@ -9,6 +9,7 @@
   フォントは同じフォルダの fonts/ を使う（このファイルと fonts/ は同じ場所に置いたままにすること）
   差出人と文字の大きさは、このブラウザに保存される（ファイルの中には書かれない）
 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <style>
 @font-face { font-family: "SoufuSerif"; font-weight: 400; src: url("fonts/NotoSerifJP-Regular.woff2") format("woff2"), url("fonts/NotoSerifJP-Regular.ttf") format("truetype"); }
 @font-face { font-family: "SoufuSerif"; font-weight: 600; src: url("fonts/NotoSerifJP-SemiBold.woff2") format("woff2"), url("fonts/NotoSerifJP-SemiBold.ttf") format("truetype"); }
@@ -40,6 +41,13 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .fields label { display: grid; gap: 2px; }
 .fields input { font: inherit; padding: 5px 8px; border: 1px solid #bbb; border-radius: 6px; }
 .hint { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.5; }
+.saved { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.saved select { flex: 1 1 100%; font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid #bbb; border-radius: 6px; }
+.cloudline { font-size: 13px; margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 6px; background: #eee; color: #555; }
+.badge.on { background: #e3f3e6; color: #1b6e2e; }
+.badge.busy { background: #fff4d6; color: #8a6200; }
+.badge.err { background: #fde7ea; color: #b00020; }
 .papers { display: flex; flex-direction: column; gap: 24px; flex: none; max-width: 100%; }
 .paper { background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.18); flex: none; }
 .paper[hidden] { display: none; }
@@ -132,6 +140,33 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
     <div class="hint">「AI用ルール」をChatGPT・Geminiなどに貼る（またはファイルを添付する）と、この送付状メーカーに貼れる形で文章を書いてくれます。【入力】のところを書きかえて使ってください。</div>
     <div class="msg" id="msg"></div>
 
+    <details id="cloudBox">
+      <summary>クラウド同期<span class="badge" id="cloudBadge">オフ</span></summary>
+      <div id="cloudOut">
+        <div class="fields">
+          <label>メールアドレス<input id="cloudEmail" type="email" autocomplete="username"></label>
+          <label>パスワード<input id="cloudPass" type="password" autocomplete="current-password"></label>
+        </div>
+        <div class="row"><button class="primary" onclick="cloudLogin()">ログイン</button></div>
+      </div>
+      <div id="cloudIn" hidden>
+        <div class="cloudline">ログイン中：<b id="cloudWho"></b><button class="small" onclick="cloudLogout()">ログアウト</button></div>
+      </div>
+      <div class="hint" id="cloudStatus">ログインすると、設定・フォーマット・差出人・本文が、ほかのパソコンやスマホとリアルタイムで同期されます。ログインしないときは、このブラウザにだけ保存されます。</div>
+    </details>
+
+    <details id="fmtBox">
+      <summary>フォーマット（保存した書き方）</summary>
+      <div class="saved">
+        <select id="fmtList"></select>
+        <button class="small" onclick="fmtLoad()">呼び出す</button>
+        <button class="small" onclick="fmtSaveAs()">名前をつけて保存</button>
+        <button class="small" onclick="fmtOverwrite()">上書き保存</button>
+        <button class="small" onclick="fmtDelete()">削除</button>
+      </div>
+      <div class="hint">「書き方の設定」「文字の大きさ」「間かく」をまとめて、名前をつけていくつでも保存できます。ふだん用・フォーマルな1通用など、使い分けてください。</div>
+    </details>
+
     <details id="senderBox">
       <summary>差出人</summary>
       <div class="fields">
@@ -140,7 +175,14 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
         <label>氏名<input id="s-氏名" placeholder="例：山田　太郎（姓と名のあいだは全角スペース）"></label>
         <label>電話<input id="s-電話" placeholder="例：090-1234-5678"></label>
       </div>
-      <div class="hint">このブラウザにだけ保存されます。送付状データに「氏名：」などを書くと、そちらが優先されます。空欄の行は送付状に出ません。</div>
+      <div class="saved">
+        <select id="senderList"></select>
+        <button class="small" onclick="senderLoad()">呼び出す</button>
+        <button class="small" onclick="senderSaveAs()">名前をつけて保存</button>
+        <button class="small" onclick="senderOverwrite()">上書き保存</button>
+        <button class="small" onclick="senderDelete()">削除</button>
+      </div>
+      <div class="hint">差出人も、名前をつけていくつでも保存できます（例：自宅・会社）。送付状データに「氏名：」などを書くと、そちらが優先されます。空欄の行は送付状に出ません。</div>
     </details>
 
     <details id="listBox">
@@ -617,6 +659,7 @@ function render() {
   document.title = title + (person ? "_" + person.replace(/[\s　]/g, "") + honor : orgLines.length ? "_" + orgLines[orgLines.length - 1].replace(/[\s　]/g, "") + honor : "");
   check(f, fromLines.length);
   try { localStorage.setItem("soufu-src", raw); } catch (e) {}
+  onLocalChange();
 }
 
 let fitted = 1, fitted2 = 1, annexUsed = false;
@@ -765,6 +808,232 @@ function applyMode(m) {
   applySizes(); saveSizes(); applyGaps(); saveGaps(); setModeLabel(m); render();
 }
 
+// ===== saved formats / senders and cloud sync =====
+// Everything the user sets up lives in one "state" object: the current settings + sender + letter text,
+// the named formats, and the named senders. Without login it stays in this browser (localStorage);
+// with login (Supabase Auth, email + password) it is one row per user, protected by RLS, kept in sync in real time.
+var SB_URL = "https://jkpiaqrxuygqtonfikkc.supabase.co";
+var SB_KEY = "sb_publishable_IjpsktD0soa2FptBa91wPw_aYRdvMT4";
+var CLIENT = "c" + Math.random().toString(36).slice(2, 10);  // marks our own writes so the echo is ignored
+var sb = null, sbUser = null, sbChannel = null;
+var cloudReady = false;   // false until the first cloud load finished: nothing is uploaded before that
+var applying = false;     // true while applying cloud/format data, so it is not taken as a local edit
+var saveTimer = null, lastJson = "", lastUpdated = null;
+var formats = store.get("soufu-formats", {});
+var senders = store.get("soufu-senders", {});
+
+const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
+  ["fromName", "soufu-fromname"], ["annex", "soufu-annex"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"]];
+
+function collectSettings() {
+  const sizes = {}, gaps = {}, out = { sizes, gaps };
+  for (const [v] of SIZES) sizes[v] = parseFloat(document.getElementById("z" + v).value);
+  for (const [v] of GAPS) gaps[v] = parseFloat(document.getElementById("g" + v).value);
+  for (const [id] of SETTING_SELECTS) out[id] = document.getElementById(id).value;
+  return out;
+}
+function applySettings(s) {
+  if (!s) return;
+  for (const [v, , d] of SIZES) document.getElementById("z" + v).value = s.sizes && s.sizes[v] != null ? s.sizes[v] : d;
+  for (const [v, , d] of GAPS) document.getElementById("g" + v).value = s.gaps && s.gaps[v] != null ? s.gaps[v] : d;
+  for (const [id, key] of SETTING_SELECTS) {
+    const el = document.getElementById(id);
+    if (s[id] == null) continue;
+    el.value = s[id];
+    if (el.value !== s[id]) continue;  // unknown value from an older version: keep the current one
+    store.set(key, el.value);
+  }
+  applySizes(); saveSizes(); applyGaps(); saveGaps(); applyLines();
+}
+function applySender(o) {
+  for (const k of SENDER_KEYS) document.getElementById("s-" + k).value = (o && o[k]) || "";
+  store.set("soufu-sender", senderFromInputs());
+}
+
+function collectState() {
+  return { v: 1, current: { settings: collectSettings(), sender: senderFromInputs(), src: document.getElementById("src").value },
+           formats, senders };
+}
+function applyState(d) {
+  applying = true;
+  try {
+    formats = d.formats || {}; senders = d.senders || {};
+    store.set("soufu-formats", formats); store.set("soufu-senders", senders);
+    if (d.current) {
+      applySettings(d.current.settings);
+      applySender(d.current.sender);
+      if (typeof d.current.src === "string") document.getElementById("src").value = d.current.src;
+    }
+    refreshSavedLists();
+    render();
+  } finally { applying = false; }
+}
+const stateJson = d => { const c = Object.assign({}, d); delete c._writer; return JSON.stringify(c); };
+
+// --- named formats / senders ---
+function fillSelect(id, obj, empty) {
+  const sel = document.getElementById(id), keep = sel.value;
+  const names = Object.keys(obj).sort((a, b) => a.localeCompare(b, "ja"));
+  sel.innerHTML = names.length ? names.map(n => `<option>${esc(n)}</option>`).join("") : `<option value="">${empty}</option>`;
+  if (names.includes(keep)) sel.value = keep;
+}
+function refreshSavedLists() {
+  fillSelect("fmtList", formats, "（まだありません）");
+  fillSelect("senderList", senders, "（まだありません）");
+}
+function savedChanged() {
+  store.set("soufu-formats", formats); store.set("soufu-senders", senders);
+  refreshSavedLists(); onLocalChange();
+}
+function askName(what, suggest) {
+  const n = (prompt(`${what}の名前を入れてください`, suggest || "") || "").trim();
+  return n || null;
+}
+function fmtLoad() {
+  const n = document.getElementById("fmtList").value;
+  if (!n || !formats[n]) return;
+  applySettings(formats[n]); render(); flash(`フォーマット「${n}」を呼び出しました。`);
+}
+function fmtSaveAs() {
+  const n = askName("フォーマット"); if (!n) return;
+  if (formats[n] && !confirm(`「${n}」はもうあります。上書きしますか？`)) return;
+  formats[n] = collectSettings(); savedChanged();
+  document.getElementById("fmtList").value = n; flash(`フォーマット「${n}」を保存しました。`);
+}
+function fmtOverwrite() {
+  const n = document.getElementById("fmtList").value;
+  if (!n || !formats[n]) return fmtSaveAs();
+  if (!confirm(`「${n}」を今の設定で上書きしますか？`)) return;
+  formats[n] = collectSettings(); savedChanged(); flash(`フォーマット「${n}」を上書きしました。`);
+}
+function fmtDelete() {
+  const n = document.getElementById("fmtList").value;
+  if (!n || !formats[n] || !confirm(`フォーマット「${n}」を削除しますか？`)) return;
+  delete formats[n]; savedChanged(); flash(`フォーマット「${n}」を削除しました。`);
+}
+function senderLoad() {
+  const n = document.getElementById("senderList").value;
+  if (!n || !senders[n]) return;
+  applySender(senders[n]); render(); flash(`差出人「${n}」を呼び出しました。`);
+}
+function senderSaveAs() {
+  const n = askName("差出人", senderFromInputs()["氏名"]); if (!n) return;
+  if (senders[n] && !confirm(`「${n}」はもうあります。上書きしますか？`)) return;
+  senders[n] = senderFromInputs(); savedChanged();
+  document.getElementById("senderList").value = n; flash(`差出人「${n}」を保存しました。`);
+}
+function senderOverwrite() {
+  const n = document.getElementById("senderList").value;
+  if (!n || !senders[n]) return senderSaveAs();
+  if (!confirm(`「${n}」を今の差出人で上書きしますか？`)) return;
+  senders[n] = senderFromInputs(); savedChanged(); flash(`差出人「${n}」を上書きしました。`);
+}
+function senderDelete() {
+  const n = document.getElementById("senderList").value;
+  if (!n || !senders[n] || !confirm(`差出人「${n}」を削除しますか？`)) return;
+  delete senders[n]; savedChanged(); flash(`差出人「${n}」を削除しました。`);
+}
+function flash(text) { document.getElementById("msg").innerHTML = `<span class="ok">${esc(text)}</span>`; }
+
+// --- cloud ---
+function cloudBadge(text, cls) {
+  const b = document.getElementById("cloudBadge");
+  b.textContent = text; b.className = "badge" + (cls ? " " + cls : "");
+}
+function cloudStatus(text) { document.getElementById("cloudStatus").textContent = text; }
+function cloudShow() {
+  document.getElementById("cloudOut").hidden = !!sbUser;
+  document.getElementById("cloudIn").hidden = !sbUser;
+  document.getElementById("cloudWho").textContent = sbUser ? sbUser.email : "";
+}
+
+// Called after every render. Uploads (debounced) only once the first cloud load is done.
+function onLocalChange() {
+  if (applying || !cloudReady || !sbUser) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(cloudSave, 1200);
+}
+async function cloudSave() {
+  saveTimer = null;
+  if (!sbUser || !cloudReady) return;
+  const data = collectState(), json = stateJson(data);
+  if (json === lastJson) return;
+  data._writer = CLIENT;
+  cloudBadge("保存中…", "busy");
+  const { data: row, error } = await sb.from("soufu_state")
+    .upsert({ user_id: sbUser.id, data, updated_at: new Date().toISOString() })
+    .select("updated_at").single();
+  if (error) { cloudBadge("保存できません", "err"); cloudStatus("保存に失敗しました：" + error.message); return; }
+  lastJson = json; lastUpdated = row.updated_at;
+  cloudBadge("同期中", "on");
+}
+// First thing after login / page open: read the cloud, then allow uploads.
+async function cloudLoad(first) {
+  const { data: row, error } = await sb.from("soufu_state").select("data,updated_at").maybeSingle();
+  if (error) { cloudBadge("読み込めません", "err"); cloudStatus("読み込みに失敗しました：" + error.message); return false; }
+  if (row && row.data && Object.keys(row.data).length) {
+    if (first || row.updated_at !== lastUpdated) {
+      lastJson = stateJson(row.data); lastUpdated = row.updated_at;
+      applyState(row.data);
+      if (first) cloudStatus("クラウドから読み込みました。ここで変えた内容は、ほかの端末にもすぐ届きます。");
+    }
+  } else if (first) {
+    cloudStatus("クラウドはまだ空でした。このブラウザの設定をクラウドに入れました。");
+  }
+  return true;
+}
+async function cloudStart(user) {
+  sbUser = user; cloudReady = false; cloudShow();
+  cloudBadge("読み込み中…", "busy");
+  document.getElementById("cloudBox").open = true;
+  if (!(await cloudLoad(true))) return;
+  cloudReady = true;
+  cloudBadge("同期中", "on");
+  onLocalChange();  // uploads the local state only if the cloud was empty or differs
+  if (sbChannel) sb.removeChannel(sbChannel);
+  sbChannel = sb.channel("soufu-" + user.id)
+    .on("postgres_changes", { event: "*", schema: "public", table: "soufu_state", filter: "user_id=eq." + user.id }, payload => {
+      const d = payload.new && payload.new.data;
+      if (!d || d._writer === CLIENT) return;           // our own write coming back
+      if (saveTimer) return;                             // an unsaved local edit wins; it is uploaded right after
+      if (stateJson(d) === lastJson) return;
+      lastJson = stateJson(d); lastUpdated = payload.new.updated_at;
+      applyState(d);
+      cloudStatus("ほかの端末の変更を反映しました。");
+    })
+    .subscribe();
+}
+async function cloudLogin() {
+  if (!sb) return cloudStatus("同期の部品を読み込めませんでした。インターネットにつながっているか確認してください。");
+  const email = document.getElementById("cloudEmail").value.trim(), password = document.getElementById("cloudPass").value;
+  if (!email || !password) return cloudStatus("メールアドレスとパスワードを入れてください。");
+  cloudBadge("ログイン中…", "busy");
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { cloudBadge("オフ"); cloudStatus("ログインできませんでした。メールアドレスかパスワードが違います。"); return; }
+  document.getElementById("cloudPass").value = "";
+  await cloudStart(data.user);
+}
+async function cloudLogout() {
+  if (saveTimer) { clearTimeout(saveTimer); await cloudSave(); }
+  if (sbChannel) { sb.removeChannel(sbChannel); sbChannel = null; }
+  await sb.auth.signOut();
+  sbUser = null; cloudReady = false; lastJson = ""; lastUpdated = null;
+  cloudShow(); cloudBadge("オフ");
+  cloudStatus("ログアウトしました。これからは、このブラウザにだけ保存されます。");
+}
+async function cloudInit() {
+  refreshSavedLists();
+  if (!(window.supabase && window.supabase.createClient)) { cloudStatus("同期の部品を読み込めませんでした（オフラインかもしれません）。このブラウザにだけ保存されます。"); return; }
+  sb = window.supabase.createClient(SB_URL, SB_KEY);
+  const { data } = await sb.auth.getSession();
+  if (data && data.session) await cloudStart(data.session.user);
+  else cloudShow();
+  // Back to this tab: catch up in case a change was missed while it was asleep.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && sbUser && cloudReady && !saveTimer) cloudLoad(false);
+  });
+}
+
 // --- sender ---
 function buildSender() {
   const saved = store.get("soufu-sender", {});
@@ -840,5 +1109,6 @@ buildGapGrid();
 })();
 document.fonts.ready.then(render);
 render();
+cloudInit();
 </script>
 </body></html>
