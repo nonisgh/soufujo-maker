@@ -145,7 +145,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 
 ## 【入力】（ここを書きかえる）
 
-- 日付：today（今日の日付になる。別の日にしたいときは「令和○年○月○日」）
+- 日付：today（今日の日付・令和になる。西暦にしたいときは today:s。別の日にしたいときは「令和○年○月○日」）
 - 相手の会社名：（個人あてなら空欄）
 - 部署名：（なければ空欄）
 - 宛名：○○　○○（会社あてなら「役職　氏名」。担当者がいなければ空欄）
@@ -185,7 +185,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 【ここまで】
 ```
 
-- 日付：【入力】が today のときは「today」とだけ書く（送付状メーカーが今日の日付を入れる）。日付が指定されていればその日付
+- 日付：【入力】が today のときは「today」、today:s のときは「today:s」とだけ書く（送付状メーカーが今日の日付を入れる）。日付が指定されていればその日付
 - 会社名：個人あてなら空欄
 - 部署：部署名。なければ空欄
 - 宛名：姓と名のあいだは全角スペース。会社あてで担当者がいないときは空欄
@@ -199,7 +199,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 ## 【書き方のルール】
 
 1. A4で1枚に収める。本文は「拝啓」の段落を入れて3〜5段落（拝啓なしなら2〜4段落）、1段落は1〜3文。
-2. 時候のあいさつは、日付が today のときは「{時候}」とだけ書く（送付状メーカーが印刷する月に合わせて入れる）。
+2. 時候のあいさつは、日付が today（today:s）のときは「{時候}」とだけ書く（送付状メーカーが印刷する月に合わせて入れる）。
    日付が指定されているときは、その月に合わせて書く。
    1月 新春の候／2月 立春の候／3月 早春の候／4月 陽春の候／5月 新緑の候／6月 初夏の候／
    7月 盛夏の候／8月 残暑の候／9月 初秋の候／10月 秋冷の候／11月 晩秋の候／12月 初冬の候
@@ -276,9 +276,16 @@ function monthOf(dateText) {
   const m = dateText.match(/(\d{1,2})月/);
   return m ? +m[1] : new Date().getMonth() + 1;
 }
+// "today:s" / "today（西暦）" etc. → today's date in Western-year form.
+function todaySeireki() {
+  const d = new Date();
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
 function resolveDate(v) {
-  const s = (v || "").trim();
-  return (!s || /^(today|今日|きょう|本日|ほんじつ)$/i.test(s) || /○/.test(s)) ? todayWareki() : s;
+  const s = (v || "").trim().replace(/\s+/g, "");
+  const today = /^(today|今日|きょう|本日|ほんじつ)/i;
+  if (today.test(s) && /([:：]s|[（(]?西暦[)）]?)$/i.test(s.replace(today, ""))) return todaySeireki();
+  return (!s || /^(today|今日|きょう|本日|ほんじつ)$/i.test(s) || /○/.test(s)) ? todayWareki() : (v || "").trim();
 }
 
 // List markers for the enclosure list.
