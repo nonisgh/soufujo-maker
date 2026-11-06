@@ -91,6 +91,11 @@ ol li .qty { width: 16mm; flex: none; text-align: right; }
       <button class="primary" onclick="window.print()">印刷・PDFに保存</button>
       <button onclick="loadSample()">見本を入れる</button>
     </div>
+    <div class="row">
+      <button onclick="copyRules()">AI用ルールをコピー</button>
+      <button onclick="downloadRules()">AI用ルールをダウンロード</button>
+    </div>
+    <div class="hint">「AI用ルール」をChatGPT・Geminiなどに貼る（またはファイルを添付する）と、この送付状メーカーに貼れる形で文章を書いてくれます。【入力】のところを書きかえて使ってください。</div>
     <div class="msg" id="msg"></div>
 
     <details id="senderBox">
@@ -132,6 +137,88 @@ ol li .qty { width: 16mm; flex: none; text-align: right; }
   <div class="paper"><section class="page" id="page"></section></div>
 </div>
 
+<!-- AI_RULES_START -->
+<script type="text/plain" id="aiRules">
+あなたは日本語のビジネス文書・手紙に詳しいアシスタントです。
+下の【入力】をもとに送付状の文章を作り、【出力の形】のとおりに答えてください。
+HTMLやデザインは作らないでください。文章だけでOKです。
+
+## 【入力】（ここを書きかえる）
+
+- 日付：today（今日の日付になる。別の日にしたいときは「令和○年○月○日」）
+- 相手の会社名：（個人あてなら空欄）
+- 部署名：（なければ空欄）
+- 宛名：○○　○○（会社あてなら「役職　氏名」。担当者がいなければ空欄）
+- 何を送るか（同封物と数量）：
+  - 例）領収書（土地・建物 売買代金）　1通
+- 伝えたいこと（箇条書きでOK）：
+  - 例）同封の書類を確認してほしい
+- タイトル：（空欄ならおまかせ。例：書類送付のご案内）
+- 文の雰囲気：ていねい／ふつう／簡潔（どれか）
+- 拝啓：あり／なし（なしなら、拝啓・時候のあいさつ・敬具を省いて、すぐ用件から書く）
+
+## 【出力の形】
+
+かならず次の形で、【送付状データ】から【ここまで】までを1つのコードブロックに入れて出力してください。
+項目名（日付：など）は変えないでください。差出人は書かないでください（自動で入ります）。
+
+```
+【送付状データ】
+日付：today
+会社名：
+部署：
+宛名：山田　太郎
+敬称：様
+タイトル：書類送付のご案内
+
+本文：
+拝啓　{時候}、山田様におかれましてはますますご清祥のこととお喜び申し上げます。
+
+（ここに本文の段落。段落と段落のあいだは空行を1つ）
+
+同封物：
+領収書（土地・建物 売買代金）｜1通
+印鑑登録証明書｜1通
+
+備考：
+※（補足があれば1〜2行。なければ「備考：」の行ごと消す）
+【ここまで】
+```
+
+- 日付：【入力】が today のときは「today」とだけ書く（送付状メーカーが今日の日付を入れる）。日付が指定されていればその日付
+- 会社名：個人あてなら空欄
+- 部署：部署名。なければ空欄
+- 宛名：姓と名のあいだは全角スペース。会社あてで担当者がいないときは空欄
+- 敬称：個人・担当者あては「様」、会社や部署だけにあてるときは「御中」
+- 本文：「拝啓」の段落から始める（【入力】で拝啓が「なし」なら、拝啓の段落を書かずに用件から始める）。
+  「敬具」は書かない（拝啓で始まっていれば自動で入る）。段落の頭の字下げも不要（自動）
+- 同封物：1行に1つ。「名前｜数量」の形（｜は全角の縦線）。番号は書かない（自動）
+- 番号：同封物の番号の形を変えたいときだけ書く（1. ／（1）／① ／i. ／I. ／a. ／・ ／なし）。書かなければ送付状メーカーの設定どおり
+- 備考：同封物の下に小さく入る補足（例：問い合わせ先の案内）。なくてもよい
+
+## 【書き方のルール】
+
+1. A4で1枚に収める。本文は「拝啓」の段落を入れて3〜5段落（拝啓なしなら2〜4段落）、1段落は1〜3文。
+2. 時候のあいさつは、日付が today のときは「{時候}」とだけ書く（送付状メーカーが印刷する月に合わせて入れる）。
+   日付が指定されているときは、その月に合わせて書く。
+   1月 新春の候／2月 立春の候／3月 早春の候／4月 陽春の候／5月 新緑の候／6月 初夏の候／
+   7月 盛夏の候／8月 残暑の候／9月 初秋の候／10月 秋冷の候／11月 晩秋の候／12月 初冬の候
+3. 「拝啓」の段落：個人あては「○○様におかれましてはますますご清祥のこととお喜び申し上げます。」
+   会社あては「貴社ますますご清栄のこととお喜び申し上げます。」
+4. 本文の中で相手を呼ぶときは「○○様」（姓だけ）。
+5. 同じ言葉を近くでくり返さない（例：「申し上げます」「心より」が2文続けて出ないようにする）。
+   言いかえの例：「お祈り申し上げます」→「願っております」、「心より御礼」→「厚く御礼」
+6. 敬語は正しく、でもかたすぎないように。
+   - 買ってもらったお礼：「ご購入いただき」（「お買い求め」はお店の買い物向き）
+   - 受け取りのお願い：「ご査収くださいますようお願い申し上げます」
+   - 辞書にない言葉は使わない（例：「再同封」ではなく「改めて同封いたしました」）
+7. 相手を責める・イヤミに聞こえる言い方は避ける（例：「長きにわたり」は「時間がかかった」と取られることがある）。
+8. こちらのミスを書くかどうかは【入力】に従う。書いていなければ、ミスにはふれない。
+9. 補足を入れるときは「※」か「（ ）」のどちらか一方だけを使う。
+   自分側の物に「ご」をつけない（例：「ご返信用封筒」ではなく「返信用封筒」）。
+10. 出力は【出力の形】のコードブロック1つだけ。説明を足すなら、そのあとに3行以内。
+</script>
+<!-- AI_RULES_END -->
 <script>
 // Font-size settings: [css variable, label, default pt]
 const SIZES = [
@@ -400,6 +487,25 @@ function buildSender() {
     el.addEventListener("input", () => { store.set("soufu-sender", senderFromInputs()); render(); });
   }
   if (!SENDER_KEYS.some(k => saved[k])) document.getElementById("senderBox").open = true;
+}
+
+// AI rules: the prompt that other AIs read, embedded below so it works offline and on GitHub Pages alike.
+function aiRules() { return document.getElementById("aiRules").textContent.replace(/^\n+/, ""); }
+function copyRules() {
+  const done = () => { document.getElementById("msg").innerHTML = `<span class="ok">AI用ルールをコピーしました。AIの入力欄に貼りつけてください。</span>`; };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(aiRules()).then(done, fallback);
+  else fallback();
+  function fallback() {
+    const ta = document.createElement("textarea"); ta.value = aiRules(); document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); ta.remove(); done();
+  }
+}
+function downloadRules() {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([aiRules()], { type: "text/markdown;charset=utf-8" }));
+  a.download = "送付状ルール_AI用.md";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 function loadSample() { document.getElementById("src").value = SAMPLE; render(); }
