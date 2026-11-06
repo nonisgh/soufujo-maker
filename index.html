@@ -146,6 +146,11 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
           <option value="full">全員フルネーム</option>
           <option value="omit">2人目から姓を省く</option>
         </select>
+        <label for="fromName">差出人の名前</label>
+        <select id="fromName">
+          <option value="left">左（住所の頭にそろえる）</option>
+          <option value="right">右（住所の終わりにそろえる）</option>
+        </select>
         <label for="toLine">宛名の下線</label>
         <select id="toLine">
           <option value="on">あり</option>
@@ -524,7 +529,7 @@ function render() {
 
   const fromLines = [
     f["郵便番号"] && `〒${esc(f["郵便番号"])}`,
-    f["住所"] && esc(f["住所"]),
+    f["住所"] && `<span class="addr">${esc(f["住所"])}</span>`,
     f["氏名"] && `<span class="name">${esc(f["氏名"])}</span>`,
     f["電話"] && `電話　${esc(f["電話"])}`,
   ].filter(Boolean);
@@ -559,6 +564,15 @@ function render() {
   html += `<div class="end" id="end"></div>`;
   const page = document.getElementById("page");
   page.innerHTML = html;
+  // Sender name on the right: its last character lines up with the last character of the address line.
+  if (document.getElementById("fromName").value === "right") {
+    const a = page.querySelector(".from .addr"), n = page.querySelector(".from .name");
+    if (a && n) {
+      n.style.display = "inline-block";
+      n.style.width = Math.max(a.getBoundingClientRect().width, n.getBoundingClientRect().width) + "px";
+      n.style.textAlign = "right";
+    }
+  }
   // Give every marker the width of the widest one so the item names line up (e.g. "i." vs "iii.").
   const ns = [...page.querySelectorAll("ol li .n")];
   ns.forEach(n => n.style.width = "auto");
@@ -746,7 +760,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
