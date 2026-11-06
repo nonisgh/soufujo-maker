@@ -51,10 +51,11 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .page { --fs-date: 11pt; --fs-org: 11pt; --fs-name: 13pt; --fs-from: 10pt; --fs-fromname: 11pt;
         --fs-title: 18pt; --fs-body: 11pt; --fs-items: 11pt; --fs-note: 9.5pt;
         --sp: 1;
-        width: 210mm; height: 297mm; padding: calc(28mm * var(--sp)) 25mm 0; overflow: hidden; position: relative;
+        --gap-top: 28mm; --gap-to: 8mm; --gap-from: 6mm; --gap-title: 20mm; --gap-body: 14mm; --gap-ki: 13mm;
+        width: 210mm; height: 297mm; padding: calc(var(--gap-top) * var(--sp)) 25mm 0; overflow: hidden; position: relative;
         font-family: "SoufuSerif"; font-weight: 400; font-size: 11pt; line-height: 1.9; color: #000; }
 .date { text-align: right; font-size: var(--fs-date); }
-.to { font-size: var(--fs-name); margin-top: calc(8mm * var(--sp)); display: inline-block; padding: 0 2mm 0.5mm; border-bottom: 1pt solid #000; line-height: 1.6; }
+.to { font-size: var(--fs-name); margin-top: calc(var(--gap-to) * var(--sp)); display: inline-block; padding: 0 2mm 0.5mm; border-bottom: 1pt solid #000; line-height: 1.6; }
 .to .org { display: block; font-size: var(--fs-org); }
 .to .sama { margin-left: 6mm; }
 .to .sama.tight { margin-left: 0; }
@@ -62,16 +63,16 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .to .persons { display: inline-grid; grid-template-columns: auto auto; column-gap: 6mm; }
 .to .persons .sama { margin-left: 0; }
 .to .ghost { visibility: hidden; }
-.from { margin: calc(6mm * var(--sp)) 0 0 auto; width: max-content; line-height: 1.75; font-size: var(--fs-from); }
+.from { margin: calc(var(--gap-from) * var(--sp)) 0 0 auto; width: max-content; line-height: 1.75; font-size: var(--fs-from); }
 .from .name { font-size: var(--fs-fromname); }
-h1 { text-align: center; font-size: var(--fs-title); font-weight: 600; letter-spacing: 0.4em; margin: calc(20mm * var(--sp)) 0 0 0.4em; line-height: 1.4; }
-.body { margin-top: calc(14mm * var(--sp)); text-align: justify; font-size: var(--fs-body);
+h1 { text-align: center; font-size: var(--fs-title); font-weight: 600; letter-spacing: 0.4em; margin: calc(var(--gap-title) * var(--sp)) 0 0 0.4em; line-height: 1.4; }
+.body { margin-top: calc(var(--gap-body) * var(--sp)); text-align: justify; font-size: var(--fs-body);
         /* 1.8 normally; long letters tighten it with the spacing, but never below 1.65 so it stays easy to read */
         line-height: calc(1.55 + 0.25 * var(--sp)); }
 .body p { margin: 0; text-indent: 1em; }
 .body p.first { text-indent: 0; }
 .keigu { text-align: right; margin-top: 1mm; }
-.ki { text-align: center; margin-top: calc(13mm * var(--sp)); font-size: var(--fs-items); }
+.ki { text-align: center; margin-top: calc(var(--gap-ki) * var(--sp)); font-size: var(--fs-items); }
 ol { list-style: none; margin: calc(6mm * var(--sp)) 0 0 12mm; padding: 0; width: 134mm; font-size: var(--fs-items); }
 ol li { display: flex; line-height: calc(1.6 + 0.6 * var(--sp)); border-bottom: 0.5pt dotted #888; }
 /* line options from the settings panel */
@@ -160,6 +161,13 @@ ol li .qty { width: 16mm; flex: none; text-align: right; }
       <div class="grid" id="sizeGrid"></div>
       <div class="row"><button class="small" onclick="resetSizes()">元の大きさにもどす</button></div>
       <div class="hint">単位は pt（ポイント）。大きくしすぎて1枚に収まらないと、上に赤い字が出ます。</div>
+    </details>
+
+    <details id="gapBox">
+      <summary>間かく</summary>
+      <div class="grid" id="gapGrid"></div>
+      <div class="row"><button class="small" onclick="resetGaps()">元の間かくにもどす</button></div>
+      <div class="hint">単位は mm。0 にすると間をあけません。長い送付状では、1枚に収まるように自動で少しつめます。</div>
     </details>
   </div>
   <div class="paper"><section class="page" id="page"></section></div>
@@ -596,6 +604,43 @@ function buildSizeGrid() {
   applySizes();
 }
 
+// --- gaps between blocks (mm) ---
+const GAPS = [
+  ["--gap-top", "上の余白", 28],
+  ["--gap-to", "日付 → 宛名", 8],
+  ["--gap-from", "宛名 → 差出人", 6],
+  ["--gap-title", "差出人 → タイトル", 20],
+  ["--gap-body", "タイトル → 本文", 14],
+  ["--gap-ki", "本文 → 記", 13],
+];
+function applyGaps() {
+  const page = document.getElementById("page");
+  for (const [v] of GAPS) {
+    const n = parseFloat(document.getElementById("g" + v).value);
+    if (n >= 0) page.style.setProperty(v, n + "mm"); else page.style.removeProperty(v);
+  }
+}
+function saveGaps() {
+  const o = {};
+  for (const [v, , d] of GAPS) {
+    const n = parseFloat(document.getElementById("g" + v).value);
+    if (n >= 0 && n !== d) o[v] = n;
+  }
+  store.set("soufu-gaps", o);
+}
+function resetGaps() {
+  for (const [v, , d] of GAPS) document.getElementById("g" + v).value = d;
+  applyGaps(); saveGaps(); render();
+}
+function buildGapGrid() {
+  const saved = store.get("soufu-gaps", {});
+  const grid = document.getElementById("gapGrid");
+  grid.innerHTML = GAPS.map(([v, label, d]) =>
+    `<label for="g${v}">${label}</label><span><input type="number" id="g${v}" min="0" max="80" step="1" value="${saved[v] ?? d}"><span class="unit">mm</span></span>`).join("");
+  grid.addEventListener("input", () => { applyGaps(); saveGaps(); render(); });
+  applyGaps();
+}
+
 // --- sender ---
 function buildSender() {
   const saved = store.get("soufu-sender", {});
@@ -662,6 +707,7 @@ applyLines();
   sel.addEventListener("change", () => { store.set("soufu-list", sel.value); render(); });
 })();
 buildSizeGrid();
+buildGapGrid();
 document.fonts.ready.then(render);
 render();
 </script>
