@@ -12,6 +12,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <style>
 @font-face { font-family: "SoufuSerif"; font-weight: 400; src: url("fonts/NotoSerifJP-Regular.woff2") format("woff2"), url("fonts/NotoSerifJP-Regular.ttf") format("truetype"); }
+@font-face { font-family: "SoufuMaru"; font-weight: 400; src: url("fonts/ZenMaruGothic-Regular.woff2") format("woff2"); }
+@font-face { font-family: "SoufuMaru"; font-weight: 600; src: url("fonts/ZenMaruGothic-Bold.woff2") format("woff2"); }
 @font-face { font-family: "SoufuSerif"; font-weight: 600; src: url("fonts/NotoSerifJP-SemiBold.woff2") format("woff2"), url("fonts/NotoSerifJP-SemiBold.ttf") format("truetype"); }
 @page { size: A4; margin: 0; }
 * { box-sizing: border-box; }
@@ -110,6 +112,23 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .annex ol { margin-top: calc(10mm * var(--sp)); }
 .annexrow .item { flex: 1; }
 
+/* ===== pop style ===== */
+.page.pop { font-family: "SoufuMaru", "SoufuSerif"; --accent: #e5533d; --accent2: #f2a33a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page.pop::before { content: ""; position: absolute; inset: 8mm; border: 1.2pt dashed var(--accent2); border-radius: 7mm; pointer-events: none; }
+.page.pop h1 { color: var(--accent); text-decoration: underline wavy var(--accent2); text-decoration-thickness: 1.2pt; text-underline-offset: 0.35em; }
+.page.pop .to { border-bottom-color: var(--accent); border-bottom-width: 1.5pt; }
+.page.pop .ki, .page.pop .keigu, .page.pop .ijo { color: var(--accent); }
+.page.pop ol li { border-bottom-color: var(--accent2); }
+.page.pop ol li .n { color: var(--accent); font-weight: 600; }
+.page.pop .note { color: #555; }
+/* decorations sit in the corners, behind the text */
+.page > *:not(.deco) { position: relative; z-index: 1; }
+.deco { position: absolute; z-index: 0; pointer-events: none; }
+.deco svg { width: 100%; height: 100%; display: block; }
+.deco-tl { left: 11mm; top: 11mm; width: 24mm; height: 24mm; }
+.deco-br { right: 11mm; bottom: 11mm; width: 28mm; height: 28mm; }
+.deco-tanuki { left: 12mm; bottom: 10mm; width: 30mm; height: 33mm; }
+
 @media print {
   body { background: #fff; }
   .app { display: block; padding: 0; }
@@ -121,6 +140,8 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
   .papers { display: block; }
   .page { height: auto; overflow: visible; padding-bottom: 0; break-after: avoid; page-break-after: avoid; }
   .page.annex { break-before: page; page-break-before: always; }
+  /* pop: the frame and corner pictures belong to the sheet, so keep the full sheet height (a hair under A4) */
+  .page.pop { height: 296mm; overflow: hidden; }
 }
 </style></head>
 <body>
@@ -200,6 +221,24 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
         <select id="renmei">
           <option value="full">全員フルネーム</option>
           <option value="omit">2人目から姓を省く</option>
+        </select>
+        <label for="style">スタイル</label>
+        <select id="style">
+          <option value="formal">フォーマル（明朝・黒）</option>
+          <option value="pop">ポップ（丸ゴシック・色つき）</option>
+        </select>
+        <label for="deco">かざり（ポップのとき）</label>
+        <select id="deco">
+          <option value="none">なし</option>
+          <option value="christmas">クリスマス</option>
+          <option value="birthday">お誕生日</option>
+          <option value="thanks">お礼・プレゼント</option>
+          <option value="season">季節おまかせ（月に合わせる）</option>
+        </select>
+        <label for="tanuo">たぬお</label>
+        <select id="tanuo">
+          <option value="off">いない</option>
+          <option value="on">すみっこにいる</option>
         </select>
         <label for="fromName">差出人の名前</label>
         <select id="fromName">
@@ -317,6 +356,8 @@ HTMLやデザインは作らないでください。文章だけでOKです。
   「敬具」は書かない（拝啓で始まっていれば自動で入る）。段落の頭の字下げも不要（自動）
 - 同封物：1行に1つ。「名前｜数量」の形（｜は全角の縦線）。番号は書かない（自動）
   名前が長いときは、区切りのいいところに「//」を入れると、そこで改行される（例：ゲームソフト「○○」//ダウンロードカード｜1枚）
+- スタイル・かざり・たぬお：プレゼントやお祝いなど、楽しい送付状にしたいときだけ書く
+  （例：スタイル：ポップ／かざり：クリスマス・お誕生日・お礼・季節おまかせ／たぬお：あり）。ふつうの送付状では書かない
 - 別紙：同封物を2枚目の「同封書類一覧」に出したいときは「別紙：あり」、出したくないときは「別紙：なし」。書かなければ、入りきらないときだけ自動で別紙になる
 - 番号：同封物の番号の形を変えたいときだけ書く（1. ／（1）／① ／i. ／I. ／a. ／・ ／なし）。書かなければ送付状メーカーの設定どおり
 - 備考：同封物の下に小さく入る補足（例：問い合わせ先の案内）。なくてもよい
@@ -465,7 +506,7 @@ function parse(text) {
     if (key === "本文") { flush(); mode = "body"; if (m[2]) para.push(m[2].trim()); continue; }
     if (key === "同封物") { flush(); mode = "items"; continue; }
     if (key === "備考") { flush(); mode = "notes"; if (m[2]) f.notes.push(m[2].trim()); continue; }
-    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","氏名","電話","番号","連名","別紙"].includes(key))) {
+    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","氏名","電話","番号","連名","別紙","スタイル","かざり","たぬお"].includes(key))) {
       flush(); mode = null;
       // A second 宛名： line adds another addressee (連名).
       f[key] = key === "宛名" && f[key] && m[2].trim() ? f[key] + "、" + m[2].trim() : m[2].trim();
@@ -630,7 +671,12 @@ function render() {
   const annexSetting = /なし|使わない|off/i.test(av) ? "off" : /あり|いつも|on/i.test(av) ? "always" : /自動|auto/i.test(av) ? "auto" : document.getElementById("annex").value;
   const page = document.getElementById("page");
   const page2 = document.getElementById("page2");
-  const build = useAnnex => html + (f.items.length ? `<div class="ki">記</div>` + (useAnnex ? annexRow : listHtml()) : "") + `<div class="end"></div>`;
+  // Style / decorations: the data lines スタイル：ポップ・かざり：クリスマス・たぬお：あり override the settings.
+  const look = resolveLook(f, month);
+  page.classList.toggle("pop", look.pop);
+  if (look.pop) { page.style.setProperty("--accent", look.accent); page.style.setProperty("--accent2", look.accent2); }
+  const decoHtml = look.pop ? decorationsHtml(look) : "";
+  const build = useAnnex => decoHtml + html + (f.items.length ? `<div class="ki">記</div>` + (useAnnex ? annexRow : listHtml()) : "") + `<div class="end"></div>`;
   let useAnnex = annexSetting === "always" && f.items.length > 0;
   page.innerHTML = build(useAnnex);
   alignSenderName(page);
@@ -809,6 +855,95 @@ function applyMode(m) {
   applySizes(); saveSizes(); applyGaps(); saveGaps(); setModeLabel(m); render();
 }
 
+// ===== pop style: colors and hand-drawn SVG decorations =====
+const SVG = {
+  holly: `<svg viewBox="0 0 100 100"><g transform="translate(50 52)">
+    <path d="M-2 2C-8-2-12-12-24-14c4 6 0 10-8 10 6 4 6 10 2 14 8-2 12 2 14 8 2-8 6-10 14-18z" fill="#2e7d32"/>
+    <path d="M2 2C8-2 12-12 24-14c-4 6 0 10 8 10-6 4-6 10-2 14-8-2-12 2-14 8-2-8-6-10-14-18z" fill="#43a047"/>
+    <circle cx="-5" cy="-3" r="6.5" fill="#c62828"/><circle cx="6" cy="-2" r="6.5" fill="#e53935"/><circle cx="0" cy="-12" r="6.5" fill="#d32f2f"/>
+    <circle cx="-7" cy="-5" r="1.8" fill="#fff" opacity=".7"/><circle cx="4" cy="-4" r="1.8" fill="#fff" opacity=".7"/></g></svg>`,
+  star: `<svg viewBox="0 0 100 100"><path d="M50 8l12 27 29 3-22 20 7 29-26-15-26 15 7-29-22-20 29-3z" fill="#f9c22e" stroke="#e0a400" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="20" cy="82" r="4" fill="#f9c22e"/><circle cx="84" cy="16" r="3" fill="#f9c22e"/><circle cx="88" cy="74" r="2.5" fill="#f9c22e"/></svg>`,
+  snow: `<svg viewBox="0 0 100 100"><g stroke="#64b5f6" stroke-width="5" stroke-linecap="round" fill="none" transform="translate(50 50)">
+    <g id="arm"><path d="M0 0V-38M0-24l-9-9M0-24l9-9M0-12l-7-7M0-12l7-7"/></g>
+    <use href="#arm" transform="rotate(60)"/><use href="#arm" transform="rotate(120)"/><use href="#arm" transform="rotate(180)"/>
+    <use href="#arm" transform="rotate(240)"/><use href="#arm" transform="rotate(300)"/></g></svg>`,
+  gift: `<svg viewBox="0 0 100 100"><rect x="16" y="42" width="68" height="48" rx="5" fill="#ef5350"/>
+    <rect x="12" y="30" width="76" height="16" rx="4" fill="#e53935"/><rect x="44" y="30" width="12" height="60" fill="#ffd54f"/>
+    <path d="M50 30C38 10 22 14 26 26c3 7 16 6 24 4zM50 30c12-20 28-16 24-4-3 7-16 6-24 4z" fill="#ffca28" stroke="#f9a825" stroke-width="2"/></svg>`,
+  cake: `<svg viewBox="0 0 100 100"><rect x="18" y="52" width="64" height="34" rx="6" fill="#f8bbd0"/>
+    <path d="M18 60q8 8 16 0t16 0 16 0 16 0" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <rect x="12" y="84" width="76" height="8" rx="4" fill="#bcaaa4"/>
+    <rect x="30" y="34" width="6" height="18" rx="2" fill="#64b5f6"/><rect x="47" y="30" width="6" height="22" rx="2" fill="#81c784"/><rect x="64" y="34" width="6" height="18" rx="2" fill="#ffb74d"/>
+    <path d="M33 26q4 4 0 8-4-4 0-8zM50 22q4 4 0 8-4-4 0-8zM67 26q4 4 0 8-4-4 0-8z" fill="#ff7043"/></svg>`,
+  balloons: `<svg viewBox="0 0 100 100"><path d="M36 50q-2 20 10 46M62 44q4 24-8 52" stroke="#9e9e9e" stroke-width="1.5" fill="none"/>
+    <ellipse cx="36" cy="34" rx="18" ry="22" fill="#4fc3f7"/><ellipse cx="64" cy="28" rx="18" ry="22" fill="#f06292"/>
+    <path d="M33 56l3-4 3 4zM61 50l3-4 3 4z" fill="#666"/><ellipse cx="29" cy="26" rx="4" ry="7" fill="#fff" opacity=".5"/><ellipse cx="57" cy="20" rx="4" ry="7" fill="#fff" opacity=".5"/></svg>`,
+  sakura: `<svg viewBox="0 0 100 100"><g transform="translate(50 50)">${[0, 72, 144, 216, 288].map(r =>
+    `<path transform="rotate(${r})" d="M0 0C-14-10-14-30-6-36L0-30 6-36C14-30 14-10 0 0z" fill="#f8bbd0" stroke="#f48fb1" stroke-width="2"/>`).join("")}
+    <circle r="6" fill="#ec407a"/></g></svg>`,
+  sunflower: `<svg viewBox="0 0 100 100"><g transform="translate(50 50)">${Array.from({ length: 14 }, (_, i) =>
+    `<ellipse transform="rotate(${i * 360 / 14})" cy="-30" rx="7" ry="15" fill="#fbc02d"/>`).join("")}
+    <circle r="19" fill="#6d4c41"/><circle r="13" fill="#5d4037"/></g></svg>`,
+  maple: `<svg viewBox="0 0 100 100"><path d="M50 8l7 18 12-6-3 16 16-4-8 14 14 6-18 10 4 10-18-4-2 22h-8l-2-22-18 4 4-10-18-10 14-6-8-14 16 4-3-16 12 6z" fill="#ef6c00" stroke="#d84315" stroke-width="2" stroke-linejoin="round"/></svg>`,
+  snowman: `<svg viewBox="0 0 100 100"><circle cx="50" cy="66" r="24" fill="#fff" stroke="#90caf9" stroke-width="3"/>
+    <circle cx="50" cy="32" r="16" fill="#fff" stroke="#90caf9" stroke-width="3"/><circle cx="44" cy="29" r="2.5"/><circle cx="56" cy="29" r="2.5"/>
+    <path d="M50 33l9 3-9 2z" fill="#ff7043"/><path d="M36 44q14 6 28 0" stroke="#e53935" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <circle cx="50" cy="60" r="2.5" fill="#555"/><circle cx="50" cy="70" r="2.5" fill="#555"/></svg>`,
+  ribbon: `<svg viewBox="0 0 100 100"><path d="M50 46C30 20 10 26 14 42c4 14 26 10 36 4zM50 46c20-26 40-20 36-4-4 14-26 10-36 4z" fill="#ec407a" stroke="#c2185b" stroke-width="2"/>
+    <path d="M46 48L32 86l10-4 6 10 4-42zM54 48l14 38-10-4-6 10-4-42z" fill="#f06292"/><circle cx="50" cy="46" r="8" fill="#c2185b"/></svg>`,
+};
+// たぬお: a round little tanuki-or-raccoon boy with a leaf on his head (Santa hat at Christmas)
+function tanukiSvg(theme) {
+  const hat = theme === "christmas"
+    ? `<path d="M30 30Q60-6 92 26L84 34Q60 18 38 36z" fill="#e53935"/><path d="M26 30q34-12 70-2" stroke="#fff" stroke-width="9" stroke-linecap="round"/><circle cx="96" cy="22" r="7" fill="#fff"/>`
+    : `<path d="M60 18q10-16 24-6-9 12-24 6z" fill="#7cb342" stroke="#558b2f" stroke-width="1.5"/><path d="M60 18q8-4 16-8" stroke="#558b2f" stroke-width="1.5"/>`;
+  return `<svg viewBox="0 0 120 132">
+    <path d="M86 104q30-4 26-34-4 12-18 14z" fill="#8d6e63"/><path d="M98 80q6 4 12 2M94 92q8 2 14-2" stroke="#4e342e" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="60" cy="104" rx="30" ry="25" fill="#a1887f"/><ellipse cx="60" cy="110" rx="18" ry="15" fill="#efebe9"/>
+    <ellipse cx="34" cy="98" rx="8" ry="11" fill="#8d6e63" transform="rotate(25 34 98)"/><ellipse cx="86" cy="98" rx="8" ry="11" fill="#8d6e63" transform="rotate(-25 86 98)"/>
+    <ellipse cx="44" cy="127" rx="11" ry="5" fill="#6d4c41"/><ellipse cx="76" cy="127" rx="11" ry="5" fill="#6d4c41"/>
+    <path d="M30 36L34 12 52 28zM90 36L86 12 68 28z" fill="#6d4c41"/><path d="M34 30l2-10 9 8zM86 30l-2-10-9 8z" fill="#d7ccc8"/>
+    <ellipse cx="60" cy="50" rx="35" ry="30" fill="#a1887f"/>
+    <path d="M27 50q16-14 30 0 3 4 6 0 14-14 30 0-6 14-20 10-13-4-26 0-14 4-20-10z" fill="#5d4037"/>
+    <circle cx="44" cy="50" r="5" fill="#fff"/><circle cx="76" cy="50" r="5" fill="#fff"/><circle cx="45" cy="50" r="3" fill="#212121"/><circle cx="75" cy="50" r="3" fill="#212121"/>
+    <circle cx="46" cy="49" r="1" fill="#fff"/><circle cx="76" cy="49" r="1" fill="#fff"/>
+    <ellipse cx="60" cy="66" rx="15" ry="11" fill="#efebe9"/><ellipse cx="60" cy="60" rx="5.5" ry="4" fill="#212121"/>
+    <path d="M53 67q7 7 14 0" stroke="#212121" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <circle cx="36" cy="64" r="5" fill="#f48fb1" opacity=".75"/><circle cx="84" cy="64" r="5" fill="#f48fb1" opacity=".75"/>
+    ${hat}</svg>`;
+}
+// Theme → colors and the two corner pictures. "season" picks by the letter's month.
+const THEMES = {
+  plain:     { accent: "#e5533d", accent2: "#f2a33a", tl: null, br: null },
+  christmas: { accent: "#c62828", accent2: "#2e7d32", tl: "holly", br: "star" },
+  birthday:  { accent: "#d81b60", accent2: "#29b6f6", tl: "balloons", br: "cake" },
+  thanks:    { accent: "#e65100", accent2: "#ec407a", tl: "ribbon", br: "gift" },
+  spring:    { accent: "#d81b60", accent2: "#f48fb1", tl: "sakura", br: "sakura" },
+  summer:    { accent: "#ef6c00", accent2: "#29b6f6", tl: "sunflower", br: "sunflower" },
+  autumn:    { accent: "#d84315", accent2: "#f9a825", tl: "maple", br: "maple" },
+  winter:    { accent: "#1565c0", accent2: "#64b5f6", tl: "snow", br: "snowman" },
+};
+function resolveLook(f, month) {
+  const v = k => (f[k] || "").trim();
+  const style = /ポップ|pop/i.test(v("スタイル")) ? "pop" : /フォーマル|formal/i.test(v("スタイル")) ? "formal" : document.getElementById("style").value;
+  const dv = v("かざり");
+  let deco = /クリスマス/.test(dv) ? "christmas" : /誕生/.test(dv) ? "birthday" : /お礼|プレゼント|ギフト/.test(dv) ? "thanks"
+    : /季節/.test(dv) ? "season" : /なし/.test(dv) ? "none" : document.getElementById("deco").value;
+  const tv = v("たぬお");
+  const tanuki = /あり|いる|on/i.test(tv) ? true : /なし|いない|off/i.test(tv) ? false : document.getElementById("tanuo").value === "on";
+  const theme = deco === "season" ? ([12, 1, 2].includes(month) ? "winter" : month <= 5 ? "spring" : month <= 8 ? "summer" : "autumn")
+    : deco === "none" ? "plain" : deco;
+  return Object.assign({ pop: style === "pop", theme, tanuki }, THEMES[theme] || THEMES.plain);
+}
+function decorationsHtml(look) {
+  let h = "";
+  if (look.tl) h += `<div class="deco deco-tl">${SVG[look.tl]}</div>`;
+  if (look.br) h += `<div class="deco deco-br">${SVG[look.br]}</div>`;
+  if (look.tanuki) h += `<div class="deco deco-tanuki">${tanukiSvg(look.theme)}</div>`;
+  return h;
+}
+
 // ===== saved formats / senders and cloud sync =====
 // Everything the user sets up lives in one "state" object: the current settings + sender + letter text,
 // the named formats, and the named senders. Without login it stays in this browser (localStorage);
@@ -824,7 +959,8 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["annex", "soufu-annex"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"]];
+  ["fromName", "soufu-fromname"], ["annex", "soufu-annex"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
   const sizes = {}, gaps = {}, out = { sizes, gaps };
@@ -1087,7 +1223,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["annex", "soufu-annex", "auto"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["annex", "soufu-annex", "auto"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
