@@ -91,6 +91,10 @@ ol li .qty { width: 16mm; flex: none; text-align: right; }
   .app { display: block; padding: 0; }
   .editor { display: none; }
   .paper { box-shadow: none; max-width: none; overflow: visible; }
+  /* The sheet is exactly 297mm on screen; when printing, let it end where the content ends so a browser that adds
+     its own margins (Safari, or a print dialog not set to "no margins") does not push the empty bottom onto page 2. */
+  html, body, .app, .paper { height: auto; }
+  .page { height: auto; overflow: visible; padding-bottom: 0; break-after: avoid; page-break-after: avoid; }
 }
 </style></head>
 <body>
