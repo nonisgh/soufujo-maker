@@ -48,12 +48,13 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 }
 
 /* letter (same layout as the original cover letters); sizes come from the settings panel */
-.page { --fs-date: 11pt; --fs-org: 12pt; --fs-name: 14pt; --fs-from: 11pt; --fs-fromname: 12.5pt;
+.page { --fs-date: 11pt; --fs-org: 11pt; --fs-name: 13pt; --fs-from: 10pt; --fs-fromname: 11pt;
         --fs-title: 18pt; --fs-body: 11pt; --fs-items: 11pt; --fs-note: 9.5pt;
-        width: 210mm; height: 297mm; padding: 28mm 25mm 0; overflow: hidden; position: relative;
+        --sp: 1;
+        width: 210mm; height: 297mm; padding: calc(28mm * var(--sp)) 25mm 0; overflow: hidden; position: relative;
         font-family: "SoufuSerif"; font-weight: 400; font-size: 11pt; line-height: 1.9; color: #000; }
 .date { text-align: right; font-size: var(--fs-date); }
-.to { font-size: var(--fs-name); margin-top: 8mm; display: inline-block; padding: 0 2mm 0.5mm; border-bottom: 1pt solid #000; line-height: 1.6; }
+.to { font-size: var(--fs-name); margin-top: calc(8mm * var(--sp)); display: inline-block; padding: 0 2mm 0.5mm; border-bottom: 1pt solid #000; line-height: 1.6; }
 .to .org { display: block; font-size: var(--fs-org); }
 .to .sama { margin-left: 6mm; }
 .to .sama.tight { margin-left: 0; }
@@ -61,21 +62,21 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .to .persons { display: inline-grid; grid-template-columns: auto auto; column-gap: 6mm; }
 .to .persons .sama { margin-left: 0; }
 .to .ghost { visibility: hidden; }
-.from { margin: 6mm 0 0 auto; width: max-content; line-height: 1.75; font-size: var(--fs-from); }
+.from { margin: calc(6mm * var(--sp)) 0 0 auto; width: max-content; line-height: 1.75; font-size: var(--fs-from); }
 .from .name { font-size: var(--fs-fromname); }
-h1 { text-align: center; font-size: var(--fs-title); font-weight: 600; letter-spacing: 0.4em; margin: 20mm 0 0 0.4em; line-height: 1.4; }
-.body { margin-top: 14mm; text-align: justify; font-size: var(--fs-body); }
+h1 { text-align: center; font-size: var(--fs-title); font-weight: 600; letter-spacing: 0.4em; margin: calc(20mm * var(--sp)) 0 0 0.4em; line-height: 1.4; }
+.body { margin-top: calc(14mm * var(--sp)); text-align: justify; font-size: var(--fs-body); }
 .body p { margin: 0; text-indent: 1em; }
 .body p.first { text-indent: 0; }
 .keigu { text-align: right; margin-top: 1mm; }
-.ki { text-align: center; margin-top: 13mm; font-size: var(--fs-items); }
-ol { list-style: none; margin: 6mm 0 0 12mm; padding: 0; width: 134mm; font-size: var(--fs-items); }
-ol li { display: flex; line-height: 2.2; border-bottom: 0.5pt dotted #888; }
+.ki { text-align: center; margin-top: calc(13mm * var(--sp)); font-size: var(--fs-items); }
+ol { list-style: none; margin: calc(6mm * var(--sp)) 0 0 12mm; padding: 0; width: 134mm; font-size: var(--fs-items); }
+ol li { display: flex; line-height: calc(1.6 + 0.6 * var(--sp)); border-bottom: 0.5pt dotted #888; }
 ol li .n { min-width: 8mm; padding-right: 2mm; flex: none; white-space: nowrap; }
 ol li .item { flex: 1; }
 ol li .qty { width: 16mm; flex: none; text-align: right; }
-.note { margin: 5mm 0 0 12mm; width: 134mm; font-size: var(--fs-note); line-height: 1.8; text-indent: -1em; padding-left: 1em; }
-.ijo { text-align: right; margin-top: 4mm; font-size: var(--fs-items); }
+.note { margin: calc(5mm * var(--sp)) 0 0 12mm; width: 134mm; font-size: var(--fs-note); line-height: 1.8; text-indent: -1em; padding-left: 1em; }
+.ijo { text-align: right; margin-top: calc(4mm * var(--sp)); font-size: var(--fs-items); }
 .end { height: 0; }
 
 @media print {
@@ -235,10 +236,10 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 // Font-size settings: [css variable, label, default pt]
 const SIZES = [
   ["--fs-date", "日付", 11],
-  ["--fs-org", "宛名（会社名・部署）", 12],
-  ["--fs-name", "宛名（名前）", 14],
-  ["--fs-from", "差出人（住所・電話）", 11],
-  ["--fs-fromname", "差出人（名前）", 12.5],
+  ["--fs-org", "宛名（会社名・部署）", 11],
+  ["--fs-name", "宛名（名前）", 13],
+  ["--fs-from", "差出人（住所・電話）", 10],
+  ["--fs-fromname", "差出人（名前）", 11],
   ["--fs-title", "タイトル", 18],
   ["--fs-body", "本文", 11],
   ["--fs-items", "記・同封物", 11],
@@ -515,15 +516,27 @@ function render() {
   ns.forEach(n => n.style.width = "auto");
   const w = Math.max(0, ...ns.map(n => n.getBoundingClientRect().width));
   ns.forEach(n => n.style.width = w + "px");
+  // Long letters: tighten the vertical spacing step by step until everything fits on one page.
+  fitted = 1;
+  for (const sp of [1, 0.85, 0.7, 0.55, 0.4]) {
+    page.style.setProperty("--sp", sp);
+    fitted = sp;
+    if (!overflows()) break;
+  }
   document.title = title + (person ? "_" + person.replace(/[\s　]/g, "") + honor : orgLines.length ? "_" + orgLines[orgLines.length - 1].replace(/[\s　]/g, "") + honor : "");
   check(f, fromLines.length);
   try { localStorage.setItem("soufu-src", raw); } catch (e) {}
 }
 
+let fitted = 1;
+function overflows() {
+  const page = document.getElementById("page"), end = document.getElementById("end");
+  return end.getBoundingClientRect().bottom - page.getBoundingClientRect().top > page.clientHeight - 20;
+}
+
 function check(f, fromCount) {
   const msgs = [];
-  const page = document.getElementById("page"), end = document.getElementById("end");
-  const overflow = end.getBoundingClientRect().bottom - page.getBoundingClientRect().top > page.clientHeight - 20;
+  const overflow = overflows();
   if (overflow) msgs.push(`<span class="warn">1枚に収まっていません。本文を短くするか、文字を小さくしてください。</span>`);
   if (!f["宛名"] && !f["会社名"] && !f["部署"]) msgs.push(`<span class="warn">宛名がありません。</span>`);
   if (!fromCount) msgs.push(`<span class="warn">差出人がありません。下の「差出人」に入力してください。</span>`);
@@ -533,7 +546,7 @@ function check(f, fromCount) {
     const ok = document.fonts.check('11pt "SoufuSerif"');
     const fm = ok ? "" : `<span class="warn">フォントが読みこめていません。このファイルと fonts フォルダを同じ場所に置いてください。</span>`;
     document.getElementById("msg").innerHTML = [...msgs, fm].filter(Boolean).join("<br>") ||
-      `<span class="ok">OK：1枚に収まっています。</span>`;
+      `<span class="ok">OK：1枚に収まっています。${fitted < 1 ? "（長いので、余白を自動でつめました）" : ""}</span>`;
   });
 }
 
