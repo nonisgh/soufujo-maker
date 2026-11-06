@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>送付状メーカー</title>
+<!--
+  送付状メーカー
+  左の欄にAIが出した「送付状データ」を貼る → 右に送付状ができる → 「印刷・PDFに保存」
+  印刷設定：用紙 A4／倍率 100%／余白 なし／ヘッダーとフッター オフ
+  フォントは同じフォルダの fonts/ を使う（このファイルと fonts/ は同じ場所に置いたままにすること）
+  差出人と文字の大きさは、このブラウザに保存される（ファイルの中には書かれない）
+-->
+<style>
+@font-face { font-family: "SoufuSerif"; font-weight: 400; src: url("fonts/NotoSerifJP-Regular.woff2") format("woff2"), url("fonts/NotoSerifJP-Regular.ttf") format("truetype"); }
+@font-face { font-family: "SoufuSerif"; font-weight: 600; src: url("fonts/NotoSerifJP-SemiBold.woff2") format("woff2"), url("fonts/NotoSerifJP-SemiBold.ttf") format("truetype"); }
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { background: #e9e9ec; color: #000; font-family: -apple-system, "Hiragino Sans", sans-serif; }
+
+/* editor (screen only) */
+.app { display: flex; gap: 24px; padding: 24px; align-items: flex-start; }
+.editor { width: 420px; flex: none; position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; padding-right: 4px; }
+.editor h2 { font-size: 16px; margin: 0 0 8px; }
+.editor p { font-size: 13px; color: #444; margin: 0 0 10px; line-height: 1.6; }
+.editor textarea { width: 100%; height: 44vh; font: 13px/1.6 ui-monospace, Menlo, monospace; padding: 10px; border: 1px solid #bbb; border-radius: 8px; background: #fff; }
+.editor .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.editor button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #888; background: #fff; cursor: pointer; }
+.editor button.primary { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }
+.editor button.small { font-size: 12px; padding: 4px 10px; }
+.msg { font-size: 13px; margin-top: 10px; line-height: 1.6; }
+.msg .warn { color: #b00020; font-weight: 600; }
+.msg .ok { color: #1b6e2e; }
+details { margin-top: 12px; background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 8px 12px; }
+summary { font-size: 14px; font-weight: 600; cursor: pointer; }
+.grid { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; margin-top: 10px; font-size: 13px; }
+.grid input[type=number] { width: 72px; font: inherit; padding: 3px 6px; border: 1px solid #bbb; border-radius: 6px; }
+.grid .unit { color: #666; margin-left: 4px; }
+.fields { display: grid; gap: 6px; margin-top: 10px; font-size: 13px; }
+.fields label { display: grid; gap: 2px; }
+.fields input { font: inherit; padding: 5px 8px; border: 1px solid #bbb; border-radius: 6px; }
+.hint { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.5; }
+.paper { background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.18); flex: none; }
+@media (max-width: 1100px) {
+  .app { flex-direction: column; }
+  .editor { width: 100%; position: static; max-height: none; }
+  .paper { max-width: 100%; overflow-x: auto; }
+}
+
+/* letter (same layout as the original cover letters); sizes come from the settings panel */
+.page { --fs-date: 11pt; --fs-org: 12pt; --fs-name: 14pt; --fs-from: 11pt; --fs-fromname: 12.5pt;
+        --fs-title: 18pt; --fs-body: 11pt; --fs-items: 11pt; --fs-note: 9.5pt;
+        width: 210mm; height: 297mm; padding: 28mm 25mm 0; overflow: hidden; position: relative;
+        font-family: "SoufuSerif"; font-weight: 400; font-size: 11pt; line-height: 1.9; color: #000; }
+.date { text-align: right; font-size: var(--fs-date); }
+.to { font-size: var(--fs-name); margin-top: 8mm; display: inline-block; padding: 0 2mm 0.5mm; border-bottom: 1pt solid #000; line-height: 1.6; }
+.to .org { display: block; font-size: var(--fs-org); }
+.to .sama { margin-left: 6mm; }
+.from { margin: 6mm 0 0 auto; width: max-content; line-height: 1.75; font-size: var(--fs-from); }
+.from .name { font-size: var(--fs-fromname); }
+h1 { text-align: center; font-size: var(--fs-title); font-weight: 600; letter-spacing: 0.4em; margin: 20mm 0 0 0.4em; line-height: 1.4; }
+.body { margin-top: 14mm; text-align: justify; font-size: var(--fs-body); }
+.body p { margin: 0; text-indent: 1em; }
+.body p.first { text-indent: 0; }
+.keigu { text-align: right; margin-top: 1mm; }
+.ki { text-align: center; margin-top: 13mm; font-size: var(--fs-items); }
+ol { list-style: none; margin: 6mm 0 0 12mm; padding: 0; width: 134mm; font-size: var(--fs-items); }
+ol li { display: flex; line-height: 2.2; border-bottom: 0.5pt dotted #888; }
+ol li .n { width: 8mm; flex: none; }
+ol li .item { flex: 1; }
+ol li .qty { width: 16mm; flex: none; text-align: right; }
+.note { margin: 5mm 0 0 12mm; width: 134mm; font-size: var(--fs-note); line-height: 1.8; text-indent: -1em; padding-left: 1em; }
+.ijo { text-align: right; margin-top: 4mm; font-size: var(--fs-items); }
+.end { height: 0; }
+
+@media print {
+  body { background: #fff; }
+  .app { display: block; padding: 0; }
+  .editor { display: none; }
+  .paper { box-shadow: none; max-width: none; overflow: visible; }
+}
+</style></head>
+<body>
+<div class="app">
+  <div class="editor">
+    <h2>送付状メーカー</h2>
+    <p>AIが出した「送付状データ」をここに貼ると、右に送付状ができます。できたら「印刷・PDFに保存」を押してください。<br>
+       印刷設定：A4／倍率100%／余白なし／ヘッダーとフッターはオフ</p>
+    <textarea id="src" spellcheck="false"></textarea>
+    <div class="row">
+      <button class="primary" onclick="window.print()">印刷・PDFに保存</button>
+      <button onclick="loadSample()">見本を入れる</button>
+    </div>
+    <div class="msg" id="msg"></div>
+
+    <details id="senderBox">
+      <summary>差出人</summary>
+      <div class="fields">
+        <label>郵便番号<input id="s-郵便番号" placeholder="例：123-4567"></label>
+        <label>住所<input id="s-住所" placeholder="例：東京都千代田区○○1-2-3"></label>
+        <label>氏名<input id="s-氏名" placeholder="例：山田　太郎（姓と名のあいだは全角スペース）"></label>
+        <label>電話<input id="s-電話" placeholder="例：090-1234-5678"></label>
+      </div>
+      <div class="hint">このブラウザにだけ保存されます。送付状データに「氏名：」などを書くと、そちらが優先されます。空欄の行は送付状に出ません。</div>
+    </details>
+
+    <details id="sizeBox">
+      <summary>文字の大きさ</summary>
+      <div class="grid" id="sizeGrid"></div>
+      <div class="row"><button class="small" onclick="resetSizes()">元の大きさにもどす</button></div>
+      <div class="hint">単位は pt（ポイント）。大きくしすぎて1枚に収まらないと、上に赤い字が出ます。</div>
+    </details>
+  </div>
+  <div class="paper"><section class="page" id="page"></section></div>
+</div>
+
+<script>
+// Font-size settings: [css variable, label, default pt]
+const SIZES = [
+  ["--fs-date", "日付", 11],
+  ["--fs-org", "宛名（会社名・部署）", 12],
+  ["--fs-name", "宛名（名前）", 14],
+  ["--fs-from", "差出人（住所・電話）", 11],
+  ["--fs-fromname", "差出人（名前）", 12.5],
+  ["--fs-title", "タイトル", 18],
+  ["--fs-body", "本文", 11],
+  ["--fs-items", "記・同封物", 11],
+  ["--fs-note", "備考", 9.5],
+];
+const SENDER_KEYS = ["郵便番号", "住所", "氏名", "電話"];
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
+
+const SAMPLE = `【送付状データ】
+日付：today
+宛名：ヌオギドラさん
+タイトル：首カバー送付のご案内
+
+本文：
+拝啓　晩秋の候、ヌオギドラ様におかれましてはますますご清祥のこととお喜び申し上げます。
+
+このたびは、四本目の首のご誕生、誠におめでとうございます。
+
+つきましては、これからの寒さに備え、首カバーを四本分お送りいたします。どうぞお使いくださいませ。
+
+同封物：
+首カバー（x・y・z用）｜3枚
+首カバー（w用・大きめ）｜1枚
+
+備考：
+※けんかにならないよう、名札シールもお使いください。
+【ここまで】`;
+
+// "today" / "今日" / "本日" / blank → today's date in Japanese era (Reiwa) form.
+function todayWareki() {
+  const d = new Date();
+  return `令和${d.getFullYear() - 2018}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+function resolveDate(v) {
+  const s = (v || "").trim();
+  return (!s || /^(today|今日|きょう|本日|ほんじつ)$/i.test(s) || /○/.test(s)) ? todayWareki() : s;
+}
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// Parse the plain-text format that any AI can produce.
+function parse(text) {
+  text = text.replace(/\r\n?/g, "\n").replace(/```[a-z]*\n?/g, "");
+  const s = text.indexOf("【送付状データ】"), e = text.indexOf("【ここまで】");
+  if (s >= 0) text = text.slice(s + "【送付状データ】".length, e > s ? e : undefined);
+  const f = { body: [], items: [], notes: [] };
+  let mode = null, para = [], lastKey = null;
+  const flush = () => { if (para.length) { f.body.push(para.join("")); para = []; } };
+  for (let raw of text.split("\n")) {
+    const line = raw.replace(/\s+$/, "");
+    const m = line.match(/^\s*([^：:\s]{1,6})\s*[：:]\s*(.*)$/);
+    const key = m && m[1];
+    if (key === "本文") { flush(); mode = "body"; if (m[2]) para.push(m[2].trim()); continue; }
+    if (key === "同封物") { flush(); mode = "items"; continue; }
+    if (key === "備考") { flush(); mode = "notes"; if (m[2]) f.notes.push(m[2].trim()); continue; }
+    if (m && !["body", "items", "notes"].includes(mode) || (m && ["日付","会社名","部署","宛名","敬称","タイトル","郵便番号","住所","氏名","電話"].includes(key))) {
+      flush(); mode = null; f[key] = m[2].trim(); lastKey = key; continue;
+    }
+    // A plain line right under 会社名/部署/宛名 continues that field on a new line.
+    if (mode === null && ["会社名", "部署", "宛名"].includes(lastKey)) {
+      const t = line.trim();
+      if (!t) { lastKey = null; continue; }
+      f[lastKey] = f[lastKey] ? f[lastKey] + "／" + t : t;
+      continue;
+    }
+    if (mode === "body") {
+      const t = line.trim();
+      if (!t) { flush(); continue; }
+      if (/^(敬具|謹白|草々|かしこ)$/.test(t)) continue;
+      para.push(t.replace(/^[　 ]+/, ""));
+    } else if (mode === "notes") {
+      const t = line.trim();
+      if (t) f.notes.push(t);
+    } else if (mode === "items") {
+      const t = line.trim().replace(/^([-・*]|\d+[.．、)）])\s*/, "");
+      if (!t) continue;
+      const parts = t.split(/[｜|]/);
+      f.items.push({ name: parts[0].trim(), qty: (parts[1] || "").trim() });
+    }
+  }
+  flush();
+  return f;
+}
+
+function senderFromInputs() {
+  const o = {};
+  for (const k of SENDER_KEYS) o[k] = document.getElementById("s-" + k).value.trim();
+  return o;
+}
+
+function render() {
+  const raw = document.getElementById("src").value;
+  const f = parse(raw);
+  const sender = senderFromInputs();
+  for (const k of SENDER_KEYS) if (!f[k]) f[k] = sender[k];
+
+  // Addressee lines: company / department (split on ／) then the person; the honorific goes on the last line.
+  const split = v => (v || "").split(/[／/]/).map(s => s.trim()).filter(Boolean);
+  const orgLines = [...split(f["会社名"]), ...split(f["部署"])];
+  const names = split(f["宛名"]);
+  let person = names.pop() || "";
+  orgLines.push(...names);
+  // Honorific written on the name itself ("BB様", "BBさん", "営業部御中") wins over the 敬称 field.
+  let honor = f["敬称"];
+  const hm = person.match(/^(.*?)[\s　]*(様|さま|さん|殿|御中)$/);
+  if (hm && hm[1]) { person = hm[1]; honor = hm[2] === "御中" ? "御中" : hm[2] === "殿" ? "殿" : "様"; }
+  if (hm && honor === "御中") { orgLines.push(person); person = ""; }
+  honor = honor || (person ? "様" : "御中");
+  const toHtml = person
+    ? orgLines.map(v => `<span class="org">${esc(v)}</span>`).join("") + `${esc(person)}<span class="sama">${esc(honor)}</span>`
+    : orgLines.map((v, i) => i < orgLines.length - 1 ? `<span class="org">${esc(v)}</span>`
+        : `${esc(v)}<span class="sama">${esc(honor)}</span>`).join("");
+
+  const fromLines = [
+    f["郵便番号"] && `〒${esc(f["郵便番号"])}`,
+    f["住所"] && esc(f["住所"]),
+    f["氏名"] && `<span class="name">${esc(f["氏名"])}</span>`,
+    f["電話"] && `電話　${esc(f["電話"])}`,
+  ].filter(Boolean);
+
+  const title = f["タイトル"] || "書類送付のご案内";
+  // The closing word follows the opening word: 拝啓→敬具, 謹啓→謹白, 前略→草々, none→none.
+  const om = f.body.length ? f.body[0].match(/^(拝啓|謹啓|前略)/) : null;
+  const opening = om && om[1];
+  const closing = { "拝啓": "敬具", "謹啓": "謹白", "前略": "草々" }[opening] || "";
+  let html = `
+    <div class="date">${esc(resolveDate(f["日付"]))}</div>
+    <div class="to">${toHtml}</div>
+    <div class="from">${fromLines.join("<br>")}</div>
+    <h1>${esc(title)}</h1>
+    <div class="body">
+      ${f.body.map((p, i) => `<p class="${i === 0 && opening ? "first" : ""}">${esc(p)}</p>`).join("\n")}
+      ${closing ? `<div class="keigu">${closing}</div>` : ""}
+    </div>`;
+  if (f.items.length) {
+    html += `<div class="ki">記</div><ol>` +
+      f.items.map((it, i) => `<li><span class="n">${i + 1}.</span><span class="item">${esc(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`).join("") +
+      `</ol>` + f.notes.map(n => `<div class="note">${esc(n)}</div>`).join("") + `<div class="ijo">以上</div>`;
+  }
+  html += `<div class="end" id="end"></div>`;
+  const page = document.getElementById("page");
+  page.innerHTML = html;
+  document.title = title + (person ? "_" + person.replace(/[\s　]/g, "") + honor : orgLines.length ? "_" + orgLines[orgLines.length - 1].replace(/[\s　]/g, "") + honor : "");
+  check(f, fromLines.length);
+  try { localStorage.setItem("soufu-src", raw); } catch (e) {}
+}
+
+function check(f, fromCount) {
+  const msgs = [];
+  const page = document.getElementById("page"), end = document.getElementById("end");
+  const overflow = end.getBoundingClientRect().bottom - page.getBoundingClientRect().top > page.clientHeight - 20;
+  if (overflow) msgs.push(`<span class="warn">1枚に収まっていません。本文を短くするか、文字を小さくしてください。</span>`);
+  if (!f["宛名"] && !f["会社名"] && !f["部署"]) msgs.push(`<span class="warn">宛名がありません。</span>`);
+  if (!fromCount) msgs.push(`<span class="warn">差出人がありません。下の「差出人」に入力してください。</span>`);
+  if (!f.body.length) msgs.push(`<span class="warn">本文がありません。</span>`);
+  document.fonts.ready.then(() => {
+    const ok = document.fonts.check('11pt "SoufuSerif"');
+    const fm = ok ? "" : `<span class="warn">フォントが読みこめていません。このファイルと fonts フォルダを同じ場所に置いてください。</span>`;
+    document.getElementById("msg").innerHTML = [...msgs, fm].filter(Boolean).join("<br>") ||
+      `<span class="ok">OK：1枚に収まっています。</span>`;
+  });
+}
+
+// --- font sizes ---
+function applySizes() {
+  const page = document.getElementById("page");
+  for (const [v] of SIZES) {
+    const n = parseFloat(document.getElementById("z" + v).value);
+    if (n > 0) page.style.setProperty(v, n + "pt"); else page.style.removeProperty(v);
+  }
+}
+function saveSizes() {
+  const o = {};
+  for (const [v, , d] of SIZES) {
+    const n = parseFloat(document.getElementById("z" + v).value);
+    if (n > 0 && n !== d) o[v] = n;
+  }
+  store.set("soufu-sizes", o);
+}
+function resetSizes() {
+  for (const [v, , d] of SIZES) document.getElementById("z" + v).value = d;
+  applySizes(); saveSizes(); render();
+}
+function buildSizeGrid() {
+  const saved = store.get("soufu-sizes", {});
+  const grid = document.getElementById("sizeGrid");
+  grid.innerHTML = SIZES.map(([v, label, d]) =>
+    `<label for="z${v}">${label}</label><span><input type="number" id="z${v}" min="6" max="40" step="0.5" value="${saved[v] ?? d}"><span class="unit">pt</span></span>`).join("");
+  grid.addEventListener("input", () => { applySizes(); saveSizes(); render(); });
+  applySizes();
+}
+
+// --- sender ---
+function buildSender() {
+  const saved = store.get("soufu-sender", {});
+  for (const k of SENDER_KEYS) {
+    const el = document.getElementById("s-" + k);
+    el.value = saved[k] || "";
+    el.addEventListener("input", () => { store.set("soufu-sender", senderFromInputs()); render(); });
+  }
+  if (!SENDER_KEYS.some(k => saved[k])) document.getElementById("senderBox").open = true;
+}
+
+function loadSample() { document.getElementById("src").value = SAMPLE; render(); }
+
+const src = document.getElementById("src");
+let saved = null;
+try { saved = localStorage.getItem("soufu-src"); } catch (e) {}
+src.value = saved || SAMPLE;
+src.addEventListener("input", render);
+buildSender();
+buildSizeGrid();
+document.fonts.ready.then(render);
+render();
+</script>
+</body></html>
