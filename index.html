@@ -404,7 +404,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
   名前が長いときは、区切りのいいところに「//」を入れると、そこで改行される（例：ゲームソフト「○○」//ダウンロードカード｜1枚）
 - スタイル・かざり・たぬお：プレゼントやお祝いなど、楽しい送付状にしたいときだけ書く
   （例：スタイル：ポップ／かざり：クリスマス・お誕生日・お礼・季節おまかせ／たぬお：あり）。ふつうの送付状では書かない
-- 別紙：同封物を2枚目の「同封書類一覧」に出したいときは「別紙：あり」、出したくないときは「別紙：なし」。書かなければ、入りきらないときだけ自動で別紙になる
+- 別紙：同封物を2枚目の「同封物一覧」に出したいときは「別紙：あり」、出したくないときは「別紙：なし」。書かなければ、入りきらないときだけ自動で別紙になる
 - 番号：同封物の番号の形を変えたいときだけ書く（1. ／（1）／① ／i. ／I. ／a. ／・ ／なし）。書かなければ送付状メーカーの設定どおり
 - 備考：同封物の下に小さく入る補足（例：問い合わせ先の案内）。なくてもよい
 
@@ -729,7 +729,7 @@ function render() {
   const listHtml = () => `<ol>` +
     f.items.map((it, i) => `<li>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${escItem(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`).join("") +
     `</ol>` + f.notes.map(n => `<div class="note">${escBr(n)}</div>`).join("") + `<div class="ijo">以上</div>`;
-  const annexRow = `<ol><li class="annexrow"><span class="item">同封書類</span><span>別紙「同封書類一覧」のとおり</span></li></ol><div class="ijo">以上</div>`;
+  const annexRow = `<ol><li class="annexrow"><span class="item">同封物</span><span>別紙「同封物一覧」のとおり</span></li></ol><div class="ijo">以上</div>`;
   // 別紙: "auto" moves the list to page 2 only when page 1 cannot hold it; the data line 別紙：あり／なし overrides the setting.
   const av = f["別紙"] || "";
   const annexSetting = /なし|使わない|off/i.test(av) ? "off" : /あり|いつも|on/i.test(av) ? "always" : /自動|auto/i.test(av) ? "auto" : document.getElementById("annex").value;
@@ -767,7 +767,7 @@ function render() {
       <div class="date">${esc(dateText)}</div>
       <div class="annex-to">${esc(toLine)}${toLine ? `<span class="sama${honor === "各位" ? " tight" : ""}">${esc(jointHtml ? "様" : honor)}</span>` : ""}</div>
       <div class="annex-from">${esc(f["氏名"] || "")}</div>
-      <h1>別紙　同封書類一覧</h1>
+      <h1>別紙　同封物一覧</h1>
       ${listHtml()}
       <div class="end"></div>`;
     fitted2 = fitPage(page2);
