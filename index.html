@@ -310,6 +310,11 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
           <option value="同封書類">同封書類（書類だけのとき）</option>
           <option value="同封品">同封品（品物だけのとき）</option>
         </select>
+        <label for="annexHead">別紙の宛名・差出人</label>
+        <select id="annexHead">
+          <option value="on">入れる</option>
+          <option value="off">入れない（日付と見出しだけ）</option>
+        </select>
         <label for="listStyle">同封物の番号</label>
         <select id="listStyle">
           <option value="1.">1.　2.　3.</option>
@@ -780,10 +785,11 @@ function render() {
     // Same lines as the addressee on page 1 (company / department / person, joint names), in the smaller size.
     // A long list (e.g. a box of many items) continues on page 3, 4, …: the first annex page keeps the
     // addressee; the next ones only repeat the title with "（つづき）". Numbering runs on across the pages.
+    const annexHead = document.getElementById("annexHead").value !== "off";
     const head = (k, n) => k === 0 ? `
       <div class="date">${esc(dateText)}</div>
-      <div class="annex-to">${toHtml}</div>
-      <div class="annex-from">${esc(f["氏名"] || "")}</div>
+      ${annexHead ? `<div class="annex-to">${toHtml}</div>
+      <div class="annex-from">${esc(f["氏名"] || "")}</div>` : ""}
       <h1>別紙　${esc(annexName)}一覧${n > 1 ? `（${k + 1}／${n}）` : ""}</h1>`
       : `<h1 class="cont-title">別紙　${esc(annexName)}一覧（${k + 1}／${n}）</h1>`;
     const fill = (pg, k, n, from, to) => { pg.innerHTML = head(k, n) + listHtml(from, to) + `<div class="end"></div>`; };
@@ -1235,7 +1241,7 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
@@ -1501,7 +1507,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
