@@ -117,6 +117,8 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .annex h1 { font-size: calc(var(--fs-title) * 0.85); margin-top: calc(10mm * var(--sp)); }
 .annex ol { margin-top: calc(10mm * var(--sp)); }
 .annexrow .item { flex: 1; }
+.annex .cont { text-align: right; margin-top: calc(4mm * var(--sp)); font-size: var(--fs-note); }
+.annex h1.cont-title { margin-top: 0; }
 
 /* ===== pop style ===== */
 .page.pop { font-family: "SoufuMaru", "SoufuSerif"; --accent: #e5533d; --accent2: #f2a33a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -736,9 +738,11 @@ function render() {
       ${closing ? `<div class="keigu">${closing}</div>` : ""}
     </div>`;
   const marker = LIST_STYLES[listStyleKey(f["番号"]) || document.getElementById("listStyle").value] || LIST_STYLES["1."];
-  const listHtml = () => `<ol>` +
-    f.items.map((it, i) => `<li>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${escItem(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`).join("") +
-    `</ol>` + f.notes.map(n => `<div class="note">${escBr(n)}</div>`).join("") + `<div class="ijo">以上</div>`;
+  // Items from..to (numbered as in the whole list); the notes and 以上 only on the last part, "（つづく）" otherwise.
+  const listHtml = (from = 0, to = f.items.length) => `<ol>` +
+    f.items.slice(from, to).map((it, j) => { const i = from + j; return `<li>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${escItem(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`; }).join("") +
+    `</ol>` + (to < f.items.length ? `<div class="cont">（つづく）</div>`
+      : f.notes.map(n => `<div class="note">${escBr(n)}</div>`).join("") + `<div class="ijo">以上</div>`);
   const annexName = document.getElementById("annexName").value || "同封物";
   const annexRow = `<ol><li class="annexrow"><span class="item">${esc(annexName)}</span><span>別紙「${esc(annexName)}一覧」のとおり</span></li></ol><div class="ijo">以上</div>`;
   // 別紙: "auto" moves the list to page 2 only when page 1 cannot hold it; the data line 別紙：あり／なし overrides the setting.
@@ -774,15 +778,42 @@ function render() {
     page2.style.cssText = page.style.cssText;
     page2.className = page.className + " annex";
     // Same lines as the addressee on page 1 (company / department / person, joint names), in the smaller size.
-    page2.innerHTML = `
+    // A long list (e.g. a box of many items) continues on page 3, 4, …: the first annex page keeps the
+    // addressee; the next ones only repeat the title with "（つづき）". Numbering runs on across the pages.
+    const head = (k, n) => k === 0 ? `
       <div class="date">${esc(dateText)}</div>
       <div class="annex-to">${toHtml}</div>
       <div class="annex-from">${esc(f["氏名"] || "")}</div>
-      <h1>別紙　${esc(annexName)}一覧</h1>
-      ${listHtml()}
-      <div class="end"></div>`;
+      <h1>別紙　${esc(annexName)}一覧${n > 1 ? `（${k + 1}／${n}）` : ""}</h1>`
+      : `<h1 class="cont-title">別紙　${esc(annexName)}一覧（${k + 1}／${n}）</h1>`;
+    const fill = (pg, k, n, from, to) => { pg.innerHTML = head(k, n) + listHtml(from, to) + `<div class="end"></div>`; };
+    page2.innerHTML = head(0, 1) + listHtml() + `<div class="end"></div>`;
     fitted2 = fitPage(page2);
-  } else page2.innerHTML = "";
+    annexPages = [page2];
+    if (overflows(page2) && f.items.length > 1) {
+      // Split: find how many items fit on each page at the normal spacing, then draw the pages with "k／n".
+      const cuts = [];
+      let from = 0, k = 0;
+      while (from < f.items.length && k < 50) {
+        const pg = k === 0 ? page2 : extraAnnexPage(k, page);
+        pg.style.setProperty("--sp", 1);
+        fill(pg, k, 2, from, f.items.length);
+        const n = itemsThatFit(pg);
+        let to = from + n;
+        if (to >= f.items.length && overflows(pg)) to = Math.max(from + 1, f.items.length - 1);  // keep 以上 with an item
+        to = Math.max(to, from + 1);
+        cuts.push([from, to]);
+        from = to; k++;
+      }
+      clearExtraAnnexPages(cuts.length);
+      annexPages = cuts.map(([a, b], k) => {
+        const pg = k === 0 ? page2 : extraAnnexPage(k, page);
+        fill(pg, k, cuts.length, a, b);
+        fitPage(pg);
+        return pg;
+      });
+    } else clearExtraAnnexPages(1);
+  } else { page2.innerHTML = ""; annexPages = []; clearExtraAnnexPages(0); }
   document.title = title + (person ? "_" + person.replace(/[\s　]/g, "") + honor : orgLines.length ? "_" + orgLines[orgLines.length - 1].replace(/[\s　]/g, "") + honor : "");
   check(f, fromLines.length);
   try { localStorage.setItem("soufu-src", raw); } catch (e) {}
@@ -792,6 +823,30 @@ function render() {
 // Placeholders for the sender's details, usable in the body and the notes.
 const SENDER_TAGS = { "会社": "差出人会社名", "会社名": "差出人会社名", "部署": "差出人部署", "氏名": "氏名", "名前": "氏名",
   "電話": "電話", "メール": "メール", "住所": "住所", "郵便番号": "郵便番号" };
+// Extra annex sheets (page 3 and later) for a long list of enclosures.
+let annexPages = [];
+function extraAnnexPage(k, page) {
+  let paper = document.getElementById("paperX" + k);
+  if (!paper) {
+    paper = document.createElement("div");
+    paper.className = "paper annex-extra"; paper.id = "paperX" + k;
+    paper.innerHTML = `<section class="page annex"></section>`;
+    const prev = k === 1 ? document.getElementById("paper2") : document.getElementById("paperX" + (k - 1));
+    prev.after(paper);
+  }
+  const pg = paper.querySelector(".page");
+  pg.style.cssText = page.style.cssText;
+  pg.className = page.className + " annex";
+  return pg;
+}
+function clearExtraAnnexPages(keep) {
+  document.querySelectorAll(".paper.annex-extra").forEach(p => { if (+p.id.slice(6) >= keep) p.remove(); });
+}
+// How many list items end above the bottom margin of the sheet (leaving room for the "（つづく）" line).
+function itemsThatFit(pg) {
+  const limit = pg.getBoundingClientRect().top + pg.clientHeight - 25 * 3.78;
+  return [...pg.querySelectorAll("ol li")].filter(li => li.getBoundingClientRect().bottom <= limit).length;
+}
 let fitted = 1, fitted2 = 1, annexUsed = false, shortLines = { fixed: 0, left: 0 };
 // Width of the last line of a paragraph, in em.
 function lastLineEm(p) {
@@ -876,7 +931,7 @@ function alignSenderName(page) {
 function check(f, fromCount) {
   const msgs = [];
   if (overflows()) msgs.push(`<span class="warn">1枚目に収まっていません。本文を短くするか、文字を小さくしてください。</span>`);
-  if (annexUsed && overflows(document.getElementById("page2"))) msgs.push(`<span class="warn">別紙（2枚目）にも収まっていません。同封物をまとめるか、文字を小さくしてください。</span>`);
+  if (annexUsed && annexPages.some(pg => overflows(pg))) msgs.push(`<span class="warn">別紙に収まっていない部分があります。同封物の名前を短くするか、文字を小さくしてください。</span>`);
   if (!f["宛名"] && !f["会社名"] && !f["部署"]) msgs.push(`<span class="warn">宛名がありません。</span>`);
   if (!fromCount) msgs.push(`<span class="warn">差出人がありません。下の「差出人」に入力してください。</span>`);
   if (f.tagMissing && f.tagMissing.size) msgs.push(`<span class="warn">本文の ${[...f.tagMissing].map(n => "{" + esc(n) + "}").join(" ")} に入れる差出人の情報がありません。下の「差出人」に入力してください。</span>`);
@@ -888,7 +943,9 @@ function check(f, fromCount) {
     const fm = ok ? "" : `<span class="warn">フォントが読みこめていません。このファイルと fonts フォルダを同じ場所に置いてください。</span>`;
     document.getElementById("msg").innerHTML = [...msgs, fm].filter(Boolean).join("<br>") ||
       (annexUsed
-        ? `<span class="ok">OK：同封物の一覧を別紙（2枚目）に出しました。印刷は2枚になります。</span>`
+        ? (annexPages.length > 1
+          ? `<span class="ok">OK：同封物が多いので、別紙を${annexPages.length}枚（2〜${annexPages.length + 1}枚目）に分けました。印刷は${annexPages.length + 1}枚になります。</span>`
+          : `<span class="ok">OK：同封物の一覧を別紙（2枚目）に出しました。印刷は2枚になります。</span>`)
         : `<span class="ok">OK：1枚に収まっています。${fitted < 1 ? "（長いので、余白を自動でつめました）" : ""}${shortLines.fixed ? "（最後の行が短い段落は、字間を少しつめて前の行に入れました）" : ""}</span>`);
   });
 }
