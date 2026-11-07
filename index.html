@@ -109,6 +109,10 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .annex .annex-to { margin-top: calc(4mm * var(--sp)); font-size: var(--fs-org); }
 .annex .annex-from { text-align: right; font-size: var(--fs-org); }
 .annex .annex-to .sama { margin-left: 1em; }
+.annex .annex-to .org { display: block; }
+.annex .annex-to .persons { display: inline-grid; grid-template-columns: auto auto; column-gap: 1em; }
+.annex .annex-to .persons .sama { margin-left: 0; }
+.annex .annex-to .ghost { visibility: hidden; }
 .annex .annex-to .sama.tight { margin-left: 0; }
 .annex h1 { font-size: calc(var(--fs-title) * 0.85); margin-top: calc(10mm * var(--sp)); }
 .annex ol { margin-top: calc(10mm * var(--sp)); }
@@ -297,6 +301,12 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
           <option value="auto">入りきらないときだけ</option>
           <option value="always">いつも別紙にする</option>
           <option value="off">使わない</option>
+        </select>
+        <label for="annexName">別紙の呼び方</label>
+        <select id="annexName">
+          <option value="同封物">同封物（書類も品物も）</option>
+          <option value="同封書類">同封書類（書類だけのとき）</option>
+          <option value="同封品">同封品（品物だけのとき）</option>
         </select>
         <label for="listStyle">同封物の番号</label>
         <select id="listStyle">
@@ -729,7 +739,8 @@ function render() {
   const listHtml = () => `<ol>` +
     f.items.map((it, i) => `<li>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${escItem(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`).join("") +
     `</ol>` + f.notes.map(n => `<div class="note">${escBr(n)}</div>`).join("") + `<div class="ijo">以上</div>`;
-  const annexRow = `<ol><li class="annexrow"><span class="item">同封物</span><span>別紙「同封物一覧」のとおり</span></li></ol><div class="ijo">以上</div>`;
+  const annexName = document.getElementById("annexName").value || "同封物";
+  const annexRow = `<ol><li class="annexrow"><span class="item">${esc(annexName)}</span><span>別紙「${esc(annexName)}一覧」のとおり</span></li></ol><div class="ijo">以上</div>`;
   // 別紙: "auto" moves the list to page 2 only when page 1 cannot hold it; the data line 別紙：あり／なし overrides the setting.
   const av = f["別紙"] || "";
   const annexSetting = /なし|使わない|off/i.test(av) ? "off" : /あり|いつも|on/i.test(av) ? "always" : /自動|auto/i.test(av) ? "auto" : document.getElementById("annex").value;
@@ -762,12 +773,12 @@ function render() {
     // Page 2 shares the size / gap / line settings of page 1.
     page2.style.cssText = page.style.cssText;
     page2.className = page.className + " annex";
-    const toLine = [...orgLines, (jointHtml ? personLines.join("、") : person)].filter(Boolean).join("　");
+    // Same lines as the addressee on page 1 (company / department / person, joint names), in the smaller size.
     page2.innerHTML = `
       <div class="date">${esc(dateText)}</div>
-      <div class="annex-to">${esc(toLine)}${toLine ? `<span class="sama${honor === "各位" ? " tight" : ""}">${esc(jointHtml ? "様" : honor)}</span>` : ""}</div>
+      <div class="annex-to">${toHtml}</div>
       <div class="annex-from">${esc(f["氏名"] || "")}</div>
-      <h1>別紙　同封物一覧</h1>
+      <h1>別紙　${esc(annexName)}一覧</h1>
       ${listHtml()}
       <div class="end"></div>`;
     fitted2 = fitPage(page2);
@@ -1167,7 +1178,7 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
@@ -1433,7 +1444,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
