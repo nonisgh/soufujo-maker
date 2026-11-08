@@ -2,6 +2,7 @@
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>送付状メーカー</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f4a3a'/%3E%3Crect x='17' y='8' width='30' height='36' rx='2' fill='%23fffdf6'/%3E%3Cpath d='M22 16h20M22 22h20M22 28h14' stroke='%239aa59d' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M8 28l24 16 24-16v24a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4z' fill='%23f3e6c8'/%3E%3Cpath d='M8 52l18-13M56 52L38 39' stroke='%23d9c79d' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M8 28l24 16 24-16' fill='none' stroke='%23d9c79d' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='44' r='7' fill='%23c0392b'/%3E%3Cpath d='M28.3 40.6h7.4M28.3 43.4h7.4M32 43.4v4.4' stroke='%23fffdf6' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E">
 <!--
   送付状メーカー
   左の欄にAIが出した「送付状データ」を貼る → 右に送付状ができる → 「印刷・PDFに保存」
@@ -9,7 +10,9 @@
   フォントは同じフォルダの fonts/ を使う（このファイルと fonts/ は同じ場所に置いたままにすること）
   差出人と文字の大きさは、このブラウザに保存される（ファイルの中には書かれない）
 -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
 @font-face { font-family: "SoufuSerif"; font-weight: 400; src: url("fonts/NotoSerifJP-Regular.woff2") format("woff2"), url("fonts/NotoSerifJP-Regular.ttf") format("truetype"); }
 @font-face { font-family: "SoufuMaru"; font-weight: 400; src: url("fonts/ZenMaruGothic-Regular.woff2") format("woff2"); }
@@ -187,11 +190,7 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
     <details id="cloudBox">
       <summary>クラウド同期<span class="badge" id="cloudBadge">オフ</span></summary>
       <div id="cloudOut">
-        <div class="fields">
-          <label>メールアドレス<input id="cloudEmail" type="email" autocomplete="username"></label>
-          <label>パスワード<input id="cloudPass" type="password" autocomplete="current-password"></label>
-        </div>
-        <div class="row"><button class="primary" onclick="cloudLogin()">ログイン</button></div>
+        <div class="row"><button class="primary" onclick="cloudLogin()">Google でログイン</button></div>
       </div>
       <div id="cloudIn" hidden>
         <div class="cloudline">ログイン中：<b id="cloudWho"></b><button class="small" onclick="cloudLogout()">ログアウト</button></div>
@@ -1229,14 +1228,24 @@ function initImages() {
 // ===== saved formats / senders and cloud sync =====
 // Everything the user sets up lives in one "state" object: the current settings + sender + letter text,
 // the named formats, and the named senders. Without login it stays in this browser (localStorage);
-// with login (Supabase Auth, email + password) it is one row per user, protected by RLS, kept in sync in real time.
-var SB_URL = "https://jkpiaqrxuygqtonfikkc.supabase.co";
-var SB_KEY = "sb_publishable_IjpsktD0soa2FptBa91wPw_aYRdvMT4";
+// with login (Firebase Auth, Google account) it is one Firestore document per user at
+// apps/soufujo-maker/users/{uid}/state/main, protected by the project's shared firestore.rules
+// (only that signed-in user can read or write under apps/{appId}/users/{uid}), kept in sync in real time.
+// These config values are meant to be public; access is protected by the rules.
+var FB_CONFIG = {
+  apiKey: "AIzaSyDEH-m5Wx31Azw3aHAO3-IEK6NyAGpP9_k",
+  authDomain: "nonis-apps.firebaseapp.com",
+  projectId: "nonis-apps",
+  storageBucket: "nonis-apps.firebasestorage.app",
+  messagingSenderId: "331956814281",
+  appId: "1:331956814281:web:2936b0059067037492a818",
+};
+var FB_APP_KEY = "soufujo-maker";   // this app's folder in the shared Firestore
 var CLIENT = "c" + Math.random().toString(36).slice(2, 10);  // marks our own writes so the echo is ignored
-var sb = null, sbUser = null, sbChannel = null;
+var fbAuth = null, fbDb = null, fbUser = null, fbUnsub = null;
 var cloudReady = false;   // false until the first cloud load finished: nothing is uploaded before that
 var applying = false;     // true while applying cloud/format data, so it is not taken as a local edit
-var saveTimer = null, lastJson = "", lastUpdated = null;
+var saveTimer = null, lastJson = "";
 var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
@@ -1363,95 +1372,96 @@ function cloudBadge(text, cls) {
 }
 function cloudStatus(text) { document.getElementById("cloudStatus").textContent = text; }
 function cloudShow() {
-  document.getElementById("cloudOut").hidden = !!sbUser;
-  document.getElementById("cloudIn").hidden = !sbUser;
-  document.getElementById("cloudWho").textContent = sbUser ? sbUser.email : "";
+  document.getElementById("cloudOut").hidden = !!fbUser;
+  document.getElementById("cloudIn").hidden = !fbUser;
+  document.getElementById("cloudWho").textContent = fbUser ? (fbUser.email || fbUser.displayName || "") : "";
 }
+function stateDoc() { return fbDb.collection("apps").doc(FB_APP_KEY).collection("users").doc(fbUser.uid).collection("state").doc("main"); }
 
 // Called after every render. Uploads (debounced) only once the first cloud load is done.
 function onLocalChange() {
-  if (applying || !cloudReady || !sbUser) return;
+  if (applying || !cloudReady || !fbUser) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(cloudSave, 1200);
 }
 async function cloudSave() {
   saveTimer = null;
-  if (!sbUser || !cloudReady) return;
+  if (!fbUser || !cloudReady) return;
   const data = collectState(), json = stateJson(data);
   if (json === lastJson) return;
-  data._writer = CLIENT;
   cloudBadge("保存中…", "busy");
-  const { data: row, error } = await sb.from("soufu_state")
-    .upsert({ user_id: sbUser.id, data, updated_at: new Date().toISOString() })
-    .select("updated_at").single();
-  if (error) { cloudBadge("保存できません", "err"); cloudStatus("保存に失敗しました：" + error.message); return; }
-  lastJson = json; lastUpdated = row.updated_at;
+  try {
+    // Stored as a JSON string: Firestore maps cannot hold every shape the state can take (e.g. arrays of arrays).
+    await stateDoc().set({ json, writer: CLIENT, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  } catch (e) { cloudBadge("保存できません", "err"); cloudStatus("保存に失敗しました：" + (e.message || e)); return; }
+  lastJson = json;
   cloudBadge("同期中", "on");
+}
+// A cloud copy arrived (first load, another device, or back to this tab): apply it unless it is ours or unchanged.
+function applyCloud(snap, first) {
+  const d = snap.exists ? snap.data() : null;
+  if (!d || !d.json) {
+    if (first) cloudStatus("クラウドはまだ空でした。このブラウザの設定をクラウドに入れました。");
+    return;
+  }
+  if (!first && (snap.metadata.hasPendingWrites || d.writer === CLIENT)) return;  // our own write coming back
+  if (!first && saveTimer) return;                                                 // an unsaved local edit wins; it is uploaded right after
+  if (d.json === lastJson) return;
+  let state;
+  try { state = JSON.parse(d.json); } catch (e) { cloudStatus("クラウドのデータが読めませんでした。"); return; }
+  lastJson = d.json;
+  applyState(state);
+  cloudStatus(first ? "クラウドから読み込みました。ここで変えた内容は、ほかの端末にもすぐ届きます。" : "ほかの端末の変更を反映しました。");
 }
 // First thing after login / page open: read the cloud, then allow uploads.
 async function cloudLoad(first) {
-  const { data: row, error } = await sb.from("soufu_state").select("data,updated_at").maybeSingle();
-  if (error) { cloudBadge("読み込めません", "err"); cloudStatus("読み込みに失敗しました：" + error.message); return false; }
-  if (row && row.data && Object.keys(row.data).length) {
-    if (first || row.updated_at !== lastUpdated) {
-      lastJson = stateJson(row.data); lastUpdated = row.updated_at;
-      applyState(row.data);
-      if (first) cloudStatus("クラウドから読み込みました。ここで変えた内容は、ほかの端末にもすぐ届きます。");
-    }
-  } else if (first) {
-    cloudStatus("クラウドはまだ空でした。このブラウザの設定をクラウドに入れました。");
-  }
-  return true;
+  try { applyCloud(await stateDoc().get({ source: "server" }), first); return true; }
+  catch (e) { cloudBadge("読み込めません", "err"); cloudStatus("読み込みに失敗しました：" + (e.message || e)); return false; }
 }
 async function cloudStart(user) {
-  sbUser = user; cloudReady = false; cloudShow();
+  fbUser = user; cloudReady = false; cloudShow();
   cloudBadge("読み込み中…", "busy");
   document.getElementById("cloudBox").open = true;
   if (!(await cloudLoad(true))) return;
   cloudReady = true;
   cloudBadge("同期中", "on");
   onLocalChange();  // uploads the local state only if the cloud was empty or differs
-  if (sbChannel) sb.removeChannel(sbChannel);
-  sbChannel = sb.channel("soufu-" + user.id)
-    .on("postgres_changes", { event: "*", schema: "public", table: "soufu_state", filter: "user_id=eq." + user.id }, payload => {
-      const d = payload.new && payload.new.data;
-      if (!d || d._writer === CLIENT) return;           // our own write coming back
-      if (saveTimer) return;                             // an unsaved local edit wins; it is uploaded right after
-      if (stateJson(d) === lastJson) return;
-      lastJson = stateJson(d); lastUpdated = payload.new.updated_at;
-      applyState(d);
-      cloudStatus("ほかの端末の変更を反映しました。");
-    })
-    .subscribe();
+  if (fbUnsub) fbUnsub();
+  fbUnsub = stateDoc().onSnapshot(snap => applyCloud(snap, false), e => { cloudBadge("同期が止まりました", "err"); cloudStatus("同期に失敗しました：" + (e.message || e)); });
 }
 async function cloudLogin() {
-  if (!sb) return cloudStatus("同期の部品を読み込めませんでした。インターネットにつながっているか確認してください。");
-  const email = document.getElementById("cloudEmail").value.trim(), password = document.getElementById("cloudPass").value;
-  if (!email || !password) return cloudStatus("メールアドレスとパスワードを入れてください。");
+  if (!fbAuth) return cloudStatus("同期の部品を読み込めませんでした。インターネットにつながっているか確認してください。");
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
   cloudBadge("ログイン中…", "busy");
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) { cloudBadge("オフ"); cloudStatus("ログインできませんでした。メールアドレスかパスワードが違います。"); return; }
-  document.getElementById("cloudPass").value = "";
-  await cloudStart(data.user);
+  try { await fbAuth.signInWithPopup(provider); }   // onAuthStateChanged starts the sync
+  catch (e) {
+    if (e && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-environment")) return fbAuth.signInWithRedirect(provider);
+    cloudBadge("オフ");
+    cloudStatus(e && e.code === "auth/popup-closed-by-user" ? "ログインをやめました。" : "ログインできませんでした：" + ((e && e.message) || e));
+  }
 }
 async function cloudLogout() {
   if (saveTimer) { clearTimeout(saveTimer); await cloudSave(); }
-  if (sbChannel) { sb.removeChannel(sbChannel); sbChannel = null; }
-  await sb.auth.signOut();
-  sbUser = null; cloudReady = false; lastJson = ""; lastUpdated = null;
+  if (fbUnsub) { fbUnsub(); fbUnsub = null; }
+  fbUser = null; cloudReady = false; lastJson = "";
+  await fbAuth.signOut();
   cloudShow(); cloudBadge("オフ");
   cloudStatus("ログアウトしました。これからは、このブラウザにだけ保存されます。");
 }
 async function cloudInit() {
   refreshSavedLists();
-  if (!(window.supabase && window.supabase.createClient)) { cloudStatus("同期の部品を読み込めませんでした（オフラインかもしれません）。このブラウザにだけ保存されます。"); return; }
-  sb = window.supabase.createClient(SB_URL, SB_KEY);
-  const { data } = await sb.auth.getSession();
-  if (data && data.session) await cloudStart(data.session.user);
-  else cloudShow();
+  if (!(window.firebase && firebase.initializeApp)) { cloudStatus("同期の部品を読み込めませんでした（オフラインかもしれません）。このブラウザにだけ保存されます。"); return; }
+  firebase.initializeApp(FB_CONFIG);
+  fbAuth = firebase.auth(); fbDb = firebase.firestore();
+  cloudShow();
+  fbAuth.onAuthStateChanged(user => {
+    if (user && (!fbUser || fbUser.uid !== user.uid)) cloudStart(user);
+    else if (!user && fbUser) { if (fbUnsub) { fbUnsub(); fbUnsub = null; } fbUser = null; cloudReady = false; lastJson = ""; cloudShow(); cloudBadge("オフ"); }
+  });
   // Back to this tab: catch up in case a change was missed while it was asleep.
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && sbUser && cloudReady && !saveTimer) cloudLoad(false);
+    if (document.visibilityState === "visible" && fbUser && cloudReady && !saveTimer) cloudLoad(false);
   });
 }
 

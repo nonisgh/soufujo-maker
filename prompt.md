@@ -4,13 +4,13 @@ ChatGPT・Gemini・Claude など、どのAIでも使える送付状のフォー�
 AIには「文章」だけを作ってもらい、見た目と印刷は「送付状メーカー.html」が受け持ちます。
 だから、どのAIを使っても、同じレイアウト・同じ字体（Noto Serif JP）できれいに印刷できます。
 
-送付状メーカー：https://nonisgh.github.io/soufujo-maker/
+送付状メーカー：https://soufujo-maker-nonis.web.app/
 
 ## つかいかた
 1. このファイルの「ここから下をAIに貼りつける」から最後までをコピーする
 2. 【入力】のところを書きかえて、AIに送る
 3. AIの答えをまるごとコピーする（前後に説明文があっても大丈夫）
-4. 送付状メーカー（https://nonisgh.github.io/soufujo-maker/）をChromeで開き、左の欄に貼りつける
+4. 送付状メーカー（https://soufujo-maker-nonis.web.app/）をChromeで開き、左の欄に貼りつける
 5. 右の送付状を確認して「印刷・PDFに保存」
    印刷設定：送信先「PDFに保存」／用紙 A4／倍率 100%／余白 なし／ヘッダーとフッター オフ
 6. 左の欄の下に赤い字が出たら、そこを直す（1枚に収まらない、など）

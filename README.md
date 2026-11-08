@@ -3,7 +3,7 @@
 AIが書いた送付状の文章を貼るだけで、A4・1枚の送付状をきれいに印刷できるツールです。
 ChatGPT・Gemini・Claude など、どのAIの文章でも、同じレイアウト・同じ字体（Noto Serif JP）になります。
 
-**ひらく：** https://nonisgh.github.io/soufujo-maker/
+**ひらく：** https://soufujo-maker-nonis.web.app/
 
 ## つかいかた
 1. 送付状メーカーの「AI用ルールをコピー」を押してAIに貼り（または「ダウンロード」したファイルを添付し）、【入力】を書きかえて送る
@@ -34,10 +34,12 @@ ChatGPT・Gemini・Claude など、どのAIの文章でも、同じレイアウ�
 - 同封物などが多くて長くなると、余白と本文の行間を自動でつめて（読みやすさを保つ範囲で）1枚に収める。それでも収まらないときは赤い字で警告
 
 - フォーマット（書き方の設定）と差出人を、名前をつけていくつでも保存・呼び出し
-- クラウド同期（任意）：メールアドレス＋パスワードでログインすると、設定・フォーマット・差出人・本文がほかの端末とリアルタイムで同期。起動時はまずクラウドから読み込む
+- クラウド同期（任意）：Google アカウントでログインすると、設定・フォーマット・差出人・本文がほかの端末とリアルタイムで同期。起動時はまずクラウドから読み込む
 
 ログインしないときは、差出人・設定・貼った文章はそのブラウザの中にだけ保存され、どこにも送信されません。
-ログインしたときは Supabase（RLS で本人の行だけ読み書き可）に保存されます。テーブルの作り方は [supabase.sql](supabase.sql)。
+ログインしたときは Firebase の Firestore（`apps/soufujo-maker/users/{uid}/state/main`、ルールで本人だけ読み書き可）に保存されます。ルールは同じ Firebase プロジェクト（nonis-apps）のほかのアプリと共通のものを使います。
+
+公開先は Firebase Hosting（サイト `soufujo-maker-nonis`）。`firebase deploy --only hosting` で出します。
 
 ## フォント
 - Noto Serif JP（SIL Open Font License 1.1）。ライセンスは [fonts/OFL.txt](fonts/OFL.txt)。
