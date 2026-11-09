@@ -176,7 +176,9 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
 .rc-tbl tr.total td { font-weight: 600; }
 .rc-tbl tr.total td:first-child { letter-spacing: 1em; }
 .rc-recv { margin-top: 7mm; font-size: 12pt; }
-.rc-bottom { margin-top: 9mm; display: flex; align-items: flex-end; gap: 8mm; }
+.rc-bottom { margin-top: 9mm; display: flex; align-items: flex-end; gap: 6mm; }
+/* space for pressing a seal (e.g. a large company seal): a light dashed guide on screen, nothing when printed */
+.rc-sealbox { flex: none; border: 0.75pt dashed #bbb; color: #bbb; font-size: 9pt; display: flex; align-items: center; justify-content: center; }
 .rc-stamp { flex: none; width: 24mm; height: 30mm; border: 0.75pt dashed #777; color: #777; font-size: 8.5pt; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.5; }
 .rc-from { margin-left: auto; font-size: 11pt; line-height: 1.8; }
 .rc-from .nm { font-size: 13pt; display: flex; align-items: center; }
@@ -190,6 +192,7 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
 .imgrow input[type=number] { width: 64px; }
 
 @media print {
+  .rc-sealbox { border-color: transparent; color: transparent; }
   body { background: #fff; }
   .app { display: block; padding: 0; }
   .editor { display: none; }
@@ -505,6 +508,7 @@ HTMLやデザインは作らないでください。
 - 受け取り方：銀行振込／現金／（空欄でもよい）
 - 差出人の肩書：（例：売主。なければ空欄）
 - 事業としての受け取りか：はい／いいえ（はい で5万円以上なら収入印紙の枠を出す）
+- はんこを押す場所：いる／いらない（大きいはんこなら大きさも。例：30mm）
 - 消費税：（インボイスなど、税込金額のうち消費税を書きたいときだけ。例：10%）
 - 登録番号：（インボイスの登録番号 T＋13桁。なければ空欄）
 
@@ -533,6 +537,7 @@ HTMLやデザインは作らないでください。
 受領方法：銀行振込
 肩書：売主
 収入印紙：なし
+印の欄：なし
 
 備考：
 ※（補足があれば1〜2行。なければ「備考：」の行ごと消す）
@@ -548,6 +553,7 @@ HTMLやデザインは作らないでください。
 - 宛名：個人なら「姓　名」（全角スペース）。会社あてで担当者がいなければ空欄にして、敬称は「御中」
 - 受領方法：「銀行振込」「現金」など。書くと「上記の金額を、銀行振込にて正に領収いたしました。」になる
 - 収入印紙：事業としての受け取りで、金額が5万円以上なら「あり」。それ以外は「なし」
+- 印の欄：はんこを押す場所をあけておくときは「あり」（大きいはんこなら「30mm」のように大きさを書く）。画面にはうすい点線が出るが、印刷には出ない
 - 消費税・登録番号：【入力】にあるときだけ書く（例：消費税：10%／登録番号：T1234567890123）。なければ行ごと消す
 - 出力は【出力の形】のコードブロック1つだけ。説明を足すなら、そのあとに3行以内
 </script>
@@ -610,6 +616,7 @@ const RECEIPT_SAMPLE = `【領収書データ】
 
 受領方法：現金
 肩書：
+印の欄：あり
 
 備考：
 ※ けんかにならないよう、名札シールもお使いください。
@@ -958,8 +965,9 @@ function render() {
 // The same tool also draws a receipt when the pasted text starts with 【領収書データ】. The total is always
 // worked out here from the 内訳 rows (an AI's arithmetic is not trusted); a 金額 line that disagrees is flagged.
 const isReceipt = text => /【領収書データ】/.test(text);
-// "印" is accepted but ignored (the seal mark was dropped), so older data does not break.
-const RECEIPT_KEYS = ["日付", "番号", "宛名", "会社名", "部署", "敬称", "金額", "但し", "受領方法", "肩書", "登録番号", "収入印紙", "印", "消費税", "タイトル",
+// "印" is accepted but ignored (the red seal mark was dropped), so older data does not break.
+// "印の欄" leaves a blank square for pressing a seal: あり = 27mm, or a size such as 30mm.
+const RECEIPT_KEYS = ["印の欄", "日付", "番号", "宛名", "会社名", "部署", "敬称", "金額", "但し", "受領方法", "肩書", "登録番号", "収入印紙", "印", "消費税", "タイトル",
   "郵便番号", "住所", "建物名", "差出人会社名", "差出人部署", "氏名", "電話", "メール"];
 function parseReceipt(text) {
   text = text.replace(/\r\n?/g, "\n").replace(/```[a-z]*\n?/g, "");
@@ -1048,6 +1056,8 @@ function renderReceipt(raw) {
   const how = (f["受領方法"] || "").trim().replace(/にて$/, "");
   const recv = how ? `上記の金額を、${esc(how)}にて正に領収いたしました。` : "上記の金額を正に領収いたしました。";
   const stampOn = /あり|要|必要|on/i.test(f["収入印紙"] || "");
+  const sealVal = (f["印の欄"] || "").replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  const sealMm = /なし|off/i.test(sealVal) || !sealVal ? 0 : Math.min(45, Math.max(15, Number((sealVal.match(/(\d+(?:\.\d+)?)\s*(mm|ミリ)?/) || [])[1]) || 27));
   if (!f["収入印紙"] && total !== null && total >= 50000)
     notes.push("5万円以上の領収書です。お仕事（事業）として受け取るときは収入印紙が必要です。印紙の枠を出すときは「収入印紙：あり」と書いてください（家を売ったときなど、事業でない受け取りなら不要です）。");
 
@@ -1080,7 +1090,7 @@ function renderReceipt(raw) {
       ${descHtml ? `<div class="rc-desc">${descHtml}</div>` : ""}
       ${tableHtml}
       <div class="rc-recv">${recv}</div>
-      <div class="rc-bottom">${stampOn ? `<div class="rc-stamp">収入<br>印紙</div>` : ""}<div class="rc-from">${fromHtml}</div></div>
+      <div class="rc-bottom">${stampOn ? `<div class="rc-stamp">収入<br>印紙</div>` : ""}<div class="rc-from">${fromHtml}</div>${sealMm ? `<div class="rc-sealbox" style="width:${sealMm}mm;height:${sealMm}mm">印</div>` : ""}</div>
     </div>
     ${f.notes.length ? `<div class="rc-notes">${f.notes.map(n => `<div>${escBr(n)}</div>`).join("")}</div>` : ""}
     <div class="end"></div>`;
