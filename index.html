@@ -94,6 +94,9 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .to .ghost { visibility: hidden; }
 .from { margin: calc(var(--gap-from) * var(--sp)) 0 0 auto; width: max-content; line-height: 1.75; font-size: var(--fs-from); }
 .from .name { font-size: var(--fs-fromname); }
+/* e-mail: Latin text in the serif font looks heavy and crowded, so it is set a little smaller,
+   relative to the sender text so it still follows the size settings */
+.from .mail { font-size: 0.88em; letter-spacing: 0.02em; }
 /* title letter spacing: set by the mode / size panel, and narrowed automatically on long letters */
 h1 { --ls: calc(var(--title-ls) * (0.25 + 0.75 * var(--sp)));
      text-align: center; font-size: var(--fs-title); font-weight: 600; letter-spacing: var(--ls); margin: calc(var(--gap-title) * var(--sp)) 0 0 var(--ls); line-height: 1.4; }
@@ -166,7 +169,7 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 /* letter (手紙): drawn when the pasted text starts with 【手紙データ】. Vertical (縦書き) by default, like writing paper:
    body → 結語 → date → (address) → own name at the bottom → the addressee at the top, last. */
 .page.tegami { padding: 24mm 22mm; }
-.tg { writing-mode: vertical-rl; width: 166mm; height: 249mm; overflow: hidden; font-size: 12.5pt; line-height: var(--lh); text-align: justify; }
+.tg { writing-mode: vertical-rl; width: 166mm; height: 249mm; overflow: hidden; font-size: var(--fs, 12.5pt); line-height: var(--lh); text-align: justify; }
 .tg > * { line-height: var(--lh); }
 .tg p { margin: 0; text-indent: 1em; }
 .tg p.first { text-indent: 0; }
@@ -176,8 +179,8 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .tg .keigu { text-align: end; }
 .tg .t-date { text-indent: 2em; margin-block-start: var(--lh); }
 .tg .t-addr { text-align: end; padding-inline-end: 2em; }
-.tg .t-name { text-align: end; padding-inline-end: 1em; font-size: 13.5pt; }
-.tg .t-to { margin-block-start: var(--lh); font-size: 14pt; }
+.tg .t-name { text-align: end; padding-inline-end: 1em; font-size: 1.08em; }
+.tg .t-to { margin-block-start: var(--lh); font-size: 1.12em; }
 .tg .t-to .sama { margin-inline-start: 1em; }
 .tg.rule { -webkit-print-color-adjust: exact; print-color-adjust: exact;
   background-image: repeating-linear-gradient(to left, transparent 0, transparent calc(var(--lh) - 0.6pt), #d9c9b0 calc(var(--lh) - 0.6pt), #d9c9b0 var(--lh)); }
@@ -187,44 +190,44 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .tg.yoko.rule { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--lh) - 0.6pt), #d9c9b0 calc(var(--lh) - 0.6pt), #d9c9b0 var(--lh)); }
 
 /* receipt (領収書): drawn when the pasted text starts with 【領収書データ】; fixed sizes, framed like a paper receipt */
-.page.receipt { padding: 20mm 20mm 0; line-height: 1.6; font-size: 11pt; }
+.page.receipt { padding: 20mm 20mm 0; line-height: 1.6; font-size: calc(11pt * var(--rk, 1)); }
 .rc { border: 0.75pt solid #000; padding: 10mm 13mm 11mm; position: relative; }
 /* the copy (控え) on page 2: a red round "控" like a self-inking office stamp (Shachihata business stamps are
    a 16mm circle in red), a little larger, slightly tilted, with a faint ink texture */
 .rc-copy { position: absolute; right: 12mm; top: 16mm; width: 19mm; height: 19mm; transform: rotate(-8deg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .rc-copy svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.rc-top { display: flex; justify-content: space-between; font-size: 11pt; min-height: 1.6em; }
-.rc h1.rc-title { font-size: 24pt; font-weight: 600; letter-spacing: 0.6em; margin: 6mm 0 0 0.6em; text-align: center; line-height: 1.4; }
-.rc-to { margin-top: 8mm; width: 112mm; border-bottom: 0.75pt solid #000; padding: 0 2mm 1mm; font-size: 14pt; display: flex; align-items: flex-end; gap: 6mm; line-height: 1.5; }
+.rc-top { display: flex; justify-content: space-between; font-size: calc(11pt * var(--rk, 1)); min-height: 1.6em; }
+.rc h1.rc-title { font-size: calc(24pt * var(--rk, 1)); font-weight: 600; letter-spacing: 0.6em; margin: 6mm 0 0 0.6em; text-align: center; line-height: 1.4; }
+.rc-to { margin-top: 8mm; width: 112mm; border-bottom: 0.75pt solid #000; padding: 0 2mm 1mm; font-size: calc(14pt * var(--rk, 1)); display: flex; align-items: flex-end; gap: 6mm; line-height: 1.5; }
 .rc-to .nm { flex: 1; }
-.rc-to .org { display: block; font-size: 11pt; }
+.rc-to .org { display: block; font-size: calc(11pt * var(--rk, 1)); }
 .rc-amt { margin-top: 8mm; border: 0.75pt solid #000; min-height: 24mm; display: flex; align-items: center; padding: 3mm 8mm; }
-.rc-amt .lbl { font-size: 12pt; }
-.rc-amt .val { margin-left: auto; font-size: 24pt; letter-spacing: 0.02em; white-space: nowrap; }
+.rc-amt .lbl { font-size: calc(12pt * var(--rk, 1)); }
+.rc-amt .val { margin-left: auto; font-size: calc(24pt * var(--rk, 1)); letter-spacing: 0.02em; white-space: nowrap; }
 .rc-amt .val.blank { flex: 1; display: flex; justify-content: space-between; margin-left: 30mm; }
-.rc-tax { text-align: right; font-size: 9.5pt; margin-top: 1.5mm; }
-.rc-tadashi { margin-top: 7mm; font-size: 12pt; }
+.rc-tax { text-align: right; font-size: calc(9.5pt * var(--rk, 1)); margin-top: 1.5mm; }
+.rc-tadashi { margin-top: 7mm; font-size: calc(12pt * var(--rk, 1)); }
 .rc-tadashi b { font-weight: 600; margin-left: 4mm; }
-.rc-desc { margin: 3mm 0 0 13mm; display: grid; grid-template-columns: max-content max-content 1fr; font-size: 11pt; line-height: 1.8; }
+.rc-desc { margin: 3mm 0 0 13mm; display: grid; grid-template-columns: max-content max-content 1fr; font-size: calc(11pt * var(--rk, 1)); line-height: 1.8; }
 .rc-desc .full { grid-column: 1 / -1; }
-table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font-size: 11pt; }
+table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font-size: calc(11pt * var(--rk, 1)); }
 .rc-tbl th, .rc-tbl td { border: 0.75pt solid #000; padding: 2.5mm 5mm; line-height: 1.6; }
 .rc-tbl th { font-weight: 400; letter-spacing: 1em; text-indent: 1em; }
 .rc-tbl td.amt { text-align: right; white-space: nowrap; width: 46mm; }
 .rc-tbl td.amt .yen { margin-left: 2mm; }
-.rc-tbl .sub { display: block; font-size: 9pt; line-height: 1.7; }
+.rc-tbl .sub { display: block; font-size: calc(9pt * var(--rk, 1)); line-height: 1.7; }
 .rc-tbl tr.total td { font-weight: 600; }
 .rc-tbl tr.total td:first-child { letter-spacing: 1em; }
-.rc-recv { margin-top: 7mm; font-size: 12pt; }
+.rc-recv { margin-top: 7mm; font-size: calc(12pt * var(--rk, 1)); }
 .rc-bottom { margin-top: 9mm; display: flex; align-items: flex-end; gap: 6mm; }
 /* space for pressing a seal (e.g. a large company seal): a light dashed guide on screen, nothing when printed */
-.rc-sealbox { flex: none; border: 0.75pt dashed #bbb; color: #bbb; font-size: 9pt; display: flex; align-items: center; justify-content: center; }
-.rc-stamp { flex: none; width: 24mm; height: 30mm; border: 0.75pt dashed #777; color: #777; font-size: 8.5pt; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.5; }
-.rc-from { margin-left: auto; font-size: 11pt; line-height: 1.8; }
-.rc-from .nm { font-size: 13pt; display: flex; align-items: center; }
-.rc-from .role { font-size: 10.5pt; margin-right: 3mm; }
-.rc-from .reg { font-size: 10pt; }
-.rc-notes { margin-top: 5mm; font-size: 9pt; line-height: 1.8; color: #333; }
+.rc-sealbox { flex: none; border: 0.75pt dashed #bbb; color: #bbb; font-size: calc(9pt * var(--rk, 1)); display: flex; align-items: center; justify-content: center; }
+.rc-stamp { flex: none; width: 24mm; height: 30mm; border: 0.75pt dashed #777; color: #777; font-size: calc(8.5pt * var(--rk, 1)); display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.5; }
+.rc-from { margin-left: auto; font-size: calc(11pt * var(--rk, 1)); line-height: 1.8; }
+.rc-from .nm { font-size: calc(13pt * var(--rk, 1)); display: flex; align-items: center; }
+.rc-from .role { font-size: calc(10.5pt * var(--rk, 1)); margin-right: 3mm; }
+.rc-from .reg { font-size: calc(10pt * var(--rk, 1)); }
+.rc-notes { margin-top: 5mm; font-size: calc(9pt * var(--rk, 1)); line-height: 1.8; color: #333; }
 .imgrow { display: grid; grid-template-columns: 44px 1fr; gap: 6px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 13px; }
 .imgrow img { width: 44px; height: 44px; object-fit: contain; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 10px 10px; border-radius: 6px; }
 .imgrow .ctl { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -264,7 +267,7 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
     </div>
     <textarea id="src" spellcheck="false"></textarea>
     <div class="row">
-      <button class="primary" onclick="window.print()">印刷・PDFに保存</button>
+      <button class="primary" onclick="printWhenReady()">印刷・PDFに保存</button>
       <button onclick="loadSample()">見本を入れる</button>
     </div>
     <div class="row">
@@ -406,6 +409,20 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
           <option value="on">つくる（印刷すると2枚目に ◯控 つきで出る）</option>
           <option value="off">つくらない</option>
         </select>
+        <label for="receiptSize">領収書の文字の大きさ</label>
+        <select id="receiptSize">
+          <option value="0.9">小さめ</option>
+          <option value="1">ふつう</option>
+          <option value="1.1">大きめ</option>
+          <option value="1.2">もっと大きく</option>
+        </select>
+        <label for="tegamiSize">手紙の文字の大きさ</label>
+        <select id="tegamiSize">
+          <option value="11">小さめ（11pt）</option>
+          <option value="12.5">ふつう（12.5pt）</option>
+          <option value="14">大きめ（14pt）</option>
+          <option value="16">もっと大きく（16pt）</option>
+        </select>
         <label for="tegamiDir">手紙の向き</label>
         <select id="tegamiDir">
           <option value="tate">縦書き（便箋らしく）</option>
@@ -434,8 +451,8 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
           <option value="none">なし</option>
         </select>
       </div>
-      <div class="hint" data-kind="receipt" hidden>領収書の文字の大きさは決まっています。データに「控え：なし」と書くと、その1通だけ控えを作りません。</div>
-      <div class="hint" data-kind="tegami" hidden>手紙の文字の大きさは決まっています。手紙データに「書き方：横書き」「フォント：筆」「罫線：あり」のように書くと、そちらが優先されます。</div>
+      <div class="hint" data-kind="receipt" hidden>大きくしすぎて1枚に収まらないと、上に赤い字が出ます。データに「控え：なし」と書くと、その1通だけ控えを作りません。</div>
+      <div class="hint" data-kind="tegami" hidden>大きくしすぎて1枚に収まらないと、上に赤い字が出ます。手紙データに「書き方：横書き」「フォント：筆」「罫線：あり」のように書くと、そちらが優先されます。</div>
       <div class="hint" data-kind="letter">モードを選ぶと、文字の大きさ・タイトルの字の間・間かくがまとめて変わります。そのあと細かく変えると「カスタム」になります。送付状データに「番号：①」「連名：姓を省く」のように書くと、そちらが優先されます。</div>
     </details>
 
@@ -944,7 +961,7 @@ function render() {
   if (isReceipt(raw)) return renderReceipt(raw);
   if (isTegami(raw)) return renderTegami(raw);
   { const pg = document.getElementById("page");
-    if (pg.classList.contains("receipt") || pg.classList.contains("tegami")) { pg.className = "page"; applyLines(); } }
+    if (pg.classList.contains("receipt") || pg.classList.contains("tegami")) { pg.className = "page"; pg.style.removeProperty("--rk"); applyLines(); } }
   const f = parse(raw);
   const sender = senderFromInputs();
   for (const k of SENDER_KEYS) if (!f[k]) f[k] = sender[k];
@@ -997,7 +1014,7 @@ function render() {
     f["差出人部署"] && `<span class="corp">${esc(f["差出人部署"])}</span>`,
     f["氏名"] && `<span class="name">${esc(f["氏名"])}</span>`,
     f["電話"] && `<span class="tel">電話: ${esc(f["電話"])}</span>`,
-    f["メール"] && `<span class="tel">${esc(document.getElementById("mailLabel").value)}: ${esc(f["メール"])}</span>`,
+    f["メール"] && `<span class="tel mail">${esc(document.getElementById("mailLabel").value)}: ${esc(f["メール"])}</span>`,
   ].filter(Boolean);
 
   const title = f["タイトル"] || "書類送付のご案内";
@@ -1177,6 +1194,7 @@ function renderReceipt(raw) {
   const page = document.getElementById("page");
   page.className = "page receipt";
   page.style.removeProperty("--sp");
+  page.style.setProperty("--rk", document.getElementById("receiptSize").value || 1);
   const page2 = document.getElementById("page2");
   clearExtraAnnexPages(0);
   annexUsed = false; annexPages = []; fitted = 1; shortLines = { fixed: 0, left: 0 };
@@ -1267,6 +1285,7 @@ function renderReceipt(raw) {
   const copyOn = /なし|いらない|off/i.test(cv) ? false : /あり|つくる|作る|on/i.test(cv) ? true : document.getElementById("receiptCopy").value === "on";
   document.getElementById("paper2").hidden = !copyOn;
   page2.style.cssText = "";
+  page2.style.setProperty("--rk", document.getElementById("receiptSize").value || 1);
   page2.className = "page receipt annex";
   page2.innerHTML = copyOn ? page.innerHTML.replace('<div class="rc">', '<div class="rc">' + COPY_STAMP) : "";
   if (!f["但し"]) msgs.push("但し書き（何の代金か）がありません。「但し：○○代として」と書いてください。");
@@ -1381,8 +1400,9 @@ function renderTegami(raw) {
   if (hm && hm[1]) { to = hm[1]; honor = hm[2]; }
   honor = honor || "様";
 
-  const lh = 12.5 * (tate ? 2.1 : 2);  // pt: the height of every line, and the spacing of the ruled lines
-  page.innerHTML = `<div class="tg${tate ? "" : " yoko"}${rule ? " rule" : ""}${font === "serif" ? "" : " f-" + font}" style="--lh:${lh}pt">
+  const fs = Number(document.getElementById("tegamiSize").value) || 12.5;
+  const lh = fs * (tate ? 2.1 : 2);  // pt: the height of every line, and the spacing of the ruled lines
+  page.innerHTML = `<div class="tg${tate ? "" : " yoko"}${rule ? " rule" : ""}${font === "serif" ? "" : " f-" + font}" style="--lh:${lh}pt;--fs:${fs}pt">
       ${body.map((p, i) => `<p class="${i === 0 && (opening || scene === "お悔やみ") ? "first" : ""}">${txBr(p)}</p>`).join("")}
       ${closing ? `<div class="keigu">${esc(closing)}</div>` : ""}
       <div class="t-date">${esc(tate ? tateDate(dateText) : dateText)}</div>
@@ -1392,6 +1412,12 @@ function renderTegami(raw) {
     </div><div class="end"></div>`;
   const tg = page.querySelector(".tg");
   if (tate ? tg.scrollWidth > tg.clientWidth + 2 : tg.scrollHeight > tg.clientHeight + 2) msgs.push("1枚に収まっていません。本文を少し短くしてください。");
+  // The pen / brush fonts are large: until they arrive the screen (and a print) would fall back to 明朝.
+  const family = { pen: "SoufuPen", fude: "SoufuFude" }[font];
+  if (family && !document.fonts.check(`12pt "${family}"`, "あ")) {
+    notes.push("フォントを読みこみ中です…（終わると自動で切りかわります）");
+    document.fonts.load(`12pt "${family}"`, "あ").then(() => { if (isTegami(document.getElementById("src").value)) render(); });
+  }
   if (scene === "お悔やみ" && !msgs.length) notes.push("お悔やみの手紙として確認しました（頭語・時候なし、重ね言葉なし）。");
   document.title = "手紙" + (to ? "_" + to.replace(/[\s　]/g, "") + honor : "");
   document.getElementById("msg").innerHTML = msgs.map(t => `<span class="warn">${esc(t)}</span>`).concat(notes.map(t => `<span class="ok">${esc(t)}</span>`)).join("<br>")
@@ -1825,7 +1851,7 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["tegamiDir", "soufu-tegamidir"], ["tegamiFont", "soufu-tegamifont"], ["tegamiRule", "soufu-tegamirule"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["receiptSize", "soufu-receiptsize"], ["tegamiSize", "soufu-tegamisize"], ["tegamiDir", "soufu-tegamidir"], ["tegamiFont", "soufu-tegamifont"], ["tegamiRule", "soufu-tegamirule"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
@@ -2104,7 +2130,7 @@ function showKindTabs() {
 }
 // Settings panel: show only what the open kind uses. 文字の大きさ・間かく・画像 and most of 書き方の設定 are for the
 // cover letter; the receipt and the letter have their own few settings.
-const SETTING_KIND = { receiptCopy: "receipt", tegamiDir: "tegami", tegamiFont: "tegami", tegamiRule: "tegami" };
+const SETTING_KIND = { receiptCopy: "receipt", receiptSize: "receipt", tegamiSize: "tegami", tegamiDir: "tegami", tegamiFont: "tegami", tegamiRule: "tegami" };
 function showKindSettings(k) {
   for (const label of document.querySelectorAll("#listBox .grid label[for]")) {
     const id = label.getAttribute("for"), on = (SETTING_KIND[id] || "letter") === k;
@@ -2141,6 +2167,14 @@ function setTegamiDir(d) {
   }
   render();
 }
+// Print only after every font the sheet uses has arrived (the letter fonts are several MB).
+function printWhenReady() {
+  const fams = new Set();
+  for (const el of document.querySelectorAll(".paper:not([hidden]) .page, .paper:not([hidden]) .page *"))
+    for (const f of getComputedStyle(el).fontFamily.split(",")) fams.add(f.trim().replace(/^["']|["']$/g, ""));
+  const loads = [...fams].filter(f => /^Soufu/.test(f)).map(f => document.fonts.load(`12pt "${f}"`, "あ漢"));
+  Promise.all(loads).then(() => document.fonts.ready).then(() => window.print());
+}
 function loadSample(kind) {
   const k = kind || currentKind();
   document.getElementById("src").value = KIND_SAMPLE()[k];
@@ -2169,7 +2203,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiFont", "soufu-tegamifont", "pen"], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["receiptSize", "soufu-receiptsize", "1"], ["tegamiSize", "soufu-tegamisize", "12.5"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiFont", "soufu-tegamifont", "pen"], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
