@@ -55,6 +55,9 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .grid { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; margin-top: 10px; font-size: 13px; }
 .grid select { font: inherit; padding: 3px 6px; border: 1px solid #bbb; border-radius: 6px; }
 .grid input[type=number] { width: 72px; font: inherit; padding: 3px 6px; border: 1px solid #bbb; border-radius: 6px; }
+.grid .localfont { display: flex; gap: 4px; }
+.grid .localfont input { width: 150px; font: inherit; padding: 3px 6px; border: 1px solid #bbb; border-radius: 6px; }
+.grid .localfont button { font: inherit; font-size: 12px; padding: 2px 8px; }
 .grid .unit { color: #666; margin-left: 4px; }
 .fields { display: grid; gap: 6px; margin-top: 10px; font-size: 13px; }
 .fields label { display: grid; gap: 2px; }
@@ -182,6 +185,11 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .tg .t-name { text-align: end; padding-inline-end: 1em; font-size: 1.08em; }
 .tg .t-to { margin-block-start: var(--lh); font-size: 1.12em; }
 .tg .t-to .sama { margin-inline-start: 1em; }
+/* 連名: one line per person, the honorifics lined up (grid columns run along the line, so this works in both directions) */
+.tg .t-to .persons { display: inline-grid; grid-template-columns: auto auto; column-gap: 1em; }
+.tg .t-to .persons .sama { margin-inline-start: 0; }
+.tg .t-to .ghost { visibility: hidden; }
+.tg.f-local { font-family: var(--local-font), "SoufuSerif"; }
 .tg.rule { -webkit-print-color-adjust: exact; print-color-adjust: exact;
   background-image: repeating-linear-gradient(to left, transparent 0, transparent calc(var(--lh) - 0.6pt), #d9c9b0 calc(var(--lh) - 0.6pt), #d9c9b0 var(--lh)); }
 .tg.yoko { writing-mode: horizontal-tb; width: auto; height: 249mm; }
@@ -433,7 +441,11 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
           <option value="pen">ペン字（Klee One）</option>
           <option value="fude">筆（Yuji Syuku）</option>
           <option value="serif">明朝（送付状と同じ）</option>
+          <option value="local">このパソコンのフォント</option>
         </select>
+        <label for="tegamiLocal">フォントの名前</label>
+        <span class="localfont"><input id="tegamiLocal" list="localFontList" placeholder="例：游教科書体" autocomplete="off"><button type="button" id="localFontBtn" onclick="readLocalFonts()">一覧</button></span>
+        <datalist id="localFontList"></datalist>
         <label for="tegamiRule">手紙の罫線</label>
         <select id="tegamiRule">
           <option value="off">なし</option>
@@ -614,6 +626,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 
 - 日付：【入力】が today なら「today」とだけ書く（送付状メーカーが今日の日付を入れる）
 - 宛名：姓と名のあいだは全角スペース。敬称は「様」（恩師などには「先生」）
+- 連名（2人以上にあてる）：宛名に「、」で区切って書く（例：宛名：岡田　謙吾、岡田　絢子）。1人ずつ行を分けて、それぞれに敬称がつく
 - 場面：お礼／お祝い／お悔やみ のどれか（送付状メーカーが、場面に合わない言葉をチェックする）
 - 住所：最後に自分の住所も入れるなら「あり」、入れないなら「なし」
 - 書き方：縦書き／横書き
@@ -910,12 +923,13 @@ function looksLikeFamily(a, b) {
 }
 
 // Joint addressees: one row per person; with "omit" the shared surname is hidden on rows 2+ (kept as invisible space so given names line up).
-function renderJoint(lines, f) {
-  const HON = /^(.*?)[\s　]*(様|さま|さん|殿)$/;
+// The letter passes its own formatter (vertical text) and keeps さん / 先生 as written.
+function renderJoint(lines, f, fmt = esc, letter = false) {
+  const HON = letter ? /^(.*?)[\s　]*(様|さま|さん|殿|先生)$/ : /^(.*?)[\s　]*(様|さま|さん|殿)$/;
   const people = lines.map(v => {
     const m = v.match(HON);
     const name = (m ? m[1] : v).trim();
-    const honor = m ? (m[2] === "殿" ? "殿" : "様") : ((f["敬称"] || "").trim() || "様");
+    const honor = m ? (letter ? m[2] : m[2] === "殿" ? "殿" : "様") : ((f["敬称"] || "").trim() || "様");
     return { name, honor };
   });
   const mode = /省/.test(f["連名"] || "") ? "omit" : /全|フル/.test(f["連名"] || "") ? "full" : document.getElementById("renmei").value;
@@ -940,9 +954,9 @@ function renderJoint(lines, f) {
     else if (surname && name.startsWith(surname) && name.length > surname.length) { sur = surname; given = name.slice(surname.length); }
     else if (i > 0 && prevSur) { sur = prevSur; inherited = true; } // written without the surname, e.g. "　　絢子 様"
     let html;
-    if (sur && i > 0 && sur === prevSur && (mode === "omit" || inherited)) html = `<span class="ghost">${esc(sur)}</span>　${esc(given)}`;
-    else if (sur && mode === "omit") html = `${esc(sur)}　${esc(given)}`;
-    else html = esc(name);
+    if (sur && i > 0 && sur === prevSur && (mode === "omit" || inherited)) html = `<span class="ghost">${fmt(sur)}</span>　${fmt(given)}`;
+    else if (sur && mode === "omit") html = `${fmt(sur)}　${fmt(given)}`;
+    else html = fmt(name);
     prevSur = sur;
     return `<span>${html}</span><span class="sama">${esc(p.honor)}</span>`;
   });
@@ -1302,7 +1316,7 @@ function renderReceipt(raw) {
 // 【手紙データ】: a personal letter (thanks, congratulations, condolence). The closing word follows the opening word
 // as in the cover letter; then the date, optionally the sender's address, the sender's name, and last the addressee.
 const isTegami = text => /【手紙データ】/.test(text);
-const TEGAMI_KEYS = ["日付", "宛名", "敬称", "場面", "かたさ", "書き方", "向き", "罫線", "住所", "名前", "結語", "フォント", "字"];
+const TEGAMI_KEYS = ["日付", "宛名", "敬称", "場面", "かたさ", "書き方", "向き", "罫線", "住所", "名前", "結語", "フォント", "字", "連名"];
 function parseTegami(text) {
   text = text.replace(/\r\n?/g, "\n").replace(/```[a-z]*\n?/g, "");
   const s = text.indexOf("【手紙データ】"), e = text.indexOf("【ここまで】");
@@ -1314,7 +1328,12 @@ function parseTegami(text) {
     const t = raw.trim();
     const m = t.match(/^([^：:\s]{1,4})\s*[：:]\s*(.*)$/);
     if (m && m[1] === "本文") { inBody = true; if (m[2].trim()) para.push(m[2].trim()); continue; }
-    if (m && TEGAMI_KEYS.includes(m[1])) { flush(); inBody = false; f[m[1]] = m[2].trim(); continue; }
+    if (m && TEGAMI_KEYS.includes(m[1])) {
+      flush(); inBody = false;
+      // A second 宛名： line adds another addressee (連名).
+      f[m[1]] = m[1] === "宛名" && f[m[1]] && m[2].trim() ? f[m[1]] + "、" + m[2].trim() : m[2].trim();
+      continue;
+    }
     if (!inBody) continue;
     if (!t) { flush(); continue; }
     if (/^(敬具|謹白|草々|かしこ|敬白|拝具)$/.test(t)) { f.closingWritten = t; continue; }
@@ -1356,8 +1375,13 @@ function renderTegami(raw) {
   const rule = /なし|off/i.test(rv) ? false : /あり|on/i.test(rv) ? true : document.getElementById("tegamiRule").value === "on";
   // font: the data line フォント：ペン字／筆／明朝 wins over the setting
   const fv = f["フォント"] || f["字"] || "";
+  const msgs0 = [];
   const font = /筆|毛筆|楷書|fude/i.test(fv) ? "fude" : /ペン|教科書|pen/i.test(fv) ? "pen" : /明朝|serif/i.test(fv) ? "serif" : document.getElementById("tegamiFont").value;
   page.className = "page tegami";
+  // このパソコンのフォント: the font stays on this computer; the page only names it.
+  const localName = document.getElementById("tegamiLocal").value.trim();
+  const useLocal = font === "local" && localName;
+  if (font === "local" && !localName) msgs0.push("「このパソコンのフォント」の名前が空なので、明朝で出しています。");
   document.getElementById("dirTate").classList.toggle("on", tate);
   document.getElementById("dirYoko").classList.toggle("on", !tate);
   page.style.removeProperty("--sp");
@@ -1365,7 +1389,7 @@ function renderTegami(raw) {
   document.getElementById("page2").innerHTML = "";
   clearExtraAnnexPages(0);
   annexUsed = false; annexPages = []; fitted = 1; shortLines = { fixed: 0, left: 0 };
-  const msgs = [], notes = [];
+  const msgs = msgs0, notes = [];
   const scene = /悔|弔|喪|香典|偲/.test(f["場面"] || "") ? "お悔やみ" : /祝|慶|結婚|出産|入学|卒業|就職|昇進|長寿|新築/.test(f["場面"] || "") ? "お祝い" : "お礼";
 
   const dateText = resolveDate(f["日付"]);
@@ -1396,21 +1420,25 @@ function renderTegami(raw) {
   const addr = withAddr ? [(sender["住所"] || "").replace(/[\s　]*／[\s　]*/g, "　"), sender["建物名"]].filter(Boolean).join("　") : "";
   if (withAddr && !addr) msgs.push("「住所：あり」ですが、差出人の住所がありません。");
   let to = (f["宛名"] || "").trim(), honor = (f["敬称"] || "").trim();
+  // 連名: names separated by 、 (or several 宛名： lines) → one line each, honorifics lined up
+  const people = to.split(/[、,，]/).map(v => v.trim()).filter(Boolean);
+  const jointHtml = people.length > 1 ? renderJoint(people, f, tx, true) : "";
   const hm = to.match(/^(.*?)[\s　]*(様|さま|さん|殿|先生|御中)$/);
-  if (hm && hm[1]) { to = hm[1]; honor = hm[2]; }
+  if (!jointHtml && hm && hm[1]) { to = hm[1]; honor = hm[2]; }
   honor = honor || "様";
 
   const fs = Number(document.getElementById("tegamiSize").value) || 12.5;
   const lh = fs * (tate ? 2.1 : 2);  // pt: the height of every line, and the spacing of the ruled lines
-  page.innerHTML = `<div class="tg${tate ? "" : " yoko"}${rule ? " rule" : ""}${font === "serif" ? "" : " f-" + font}" style="--lh:${lh}pt;--fs:${fs}pt">
+  page.innerHTML = `<div class="tg${tate ? "" : " yoko"}${rule ? " rule" : ""}${font === "pen" || font === "fude" ? " f-" + font : useLocal ? " f-local" : ""}" style="--lh:${lh}pt;--fs:${fs}pt">
       ${body.map((p, i) => `<p class="${i === 0 && (opening || scene === "お悔やみ") ? "first" : ""}">${txBr(p)}</p>`).join("")}
       ${closing ? `<div class="keigu">${esc(closing)}</div>` : ""}
       <div class="t-date">${esc(tate ? tateDate(dateText) : dateText)}</div>
       ${addr ? `<div class="t-addr">${tx(addr)}</div>` : ""}
       ${name ? `<div class="t-name">${tx(name)}</div>` : ""}
-      ${to ? `<div class="t-to">${tx(to)}<span class="sama">${esc(honor)}</span></div>` : ""}
+      ${jointHtml ? `<div class="t-to">${jointHtml}</div>` : to ? `<div class="t-to">${tx(to)}<span class="sama">${esc(honor)}</span></div>` : ""}
     </div><div class="end"></div>`;
   const tg = page.querySelector(".tg");
+  if (useLocal) tg.style.setProperty("--local-font", JSON.stringify(localName));  // quoted, so any name is safe
   if (tate ? tg.scrollWidth > tg.clientWidth + 2 : tg.scrollHeight > tg.clientHeight + 2) msgs.push("1枚に収まっていません。本文を少し短くしてください。");
   // The pen / brush fonts are large: until they arrive the screen (and a print) would fall back to 明朝.
   const family = { pen: "SoufuPen", fude: "SoufuFude" }[font];
@@ -1419,7 +1447,7 @@ function renderTegami(raw) {
     document.fonts.load(`12pt "${family}"`, "あ").then(() => { if (isTegami(document.getElementById("src").value)) render(); });
   }
   if (scene === "お悔やみ" && !msgs.length) notes.push("お悔やみの手紙として確認しました（頭語・時候なし、重ね言葉なし）。");
-  document.title = "手紙" + (to ? "_" + to.replace(/[\s　]/g, "") + honor : "");
+  document.title = "手紙" + (to ? "_" + (jointHtml ? people[0].replace(/[\s　]*(様|さま|さん|殿|先生)$/, "") + "様ほか" : to + honor).replace(/[\s　]/g, "") : "");
   document.getElementById("msg").innerHTML = msgs.map(t => `<span class="warn">${esc(t)}</span>`).concat(notes.map(t => `<span class="ok">${esc(t)}</span>`)).join("<br>")
     || `<span class="ok">OK：手紙が1枚に収まっています（${tate ? "縦書き" : "横書き"}）。</span>`;
   try { localStorage.setItem("soufu-src", raw); } catch (e) {}
@@ -1851,7 +1879,7 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["receiptSize", "soufu-receiptsize"], ["tegamiSize", "soufu-tegamisize"], ["tegamiDir", "soufu-tegamidir"], ["tegamiFont", "soufu-tegamifont"], ["tegamiRule", "soufu-tegamirule"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["receiptSize", "soufu-receiptsize"], ["tegamiSize", "soufu-tegamisize"], ["tegamiDir", "soufu-tegamidir"], ["tegamiFont", "soufu-tegamifont"], ["tegamiLocal", "soufu-tegamilocal"], ["tegamiRule", "soufu-tegamirule"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
@@ -2130,12 +2158,16 @@ function showKindTabs() {
 }
 // Settings panel: show only what the open kind uses. 文字の大きさ・間かく・画像 and most of 書き方の設定 are for the
 // cover letter; the receipt and the letter have their own few settings.
-const SETTING_KIND = { receiptCopy: "receipt", receiptSize: "receipt", tegamiSize: "tegami", tegamiDir: "tegami", tegamiFont: "tegami", tegamiRule: "tegami" };
+const SETTING_KIND = { receiptCopy: "receipt", receiptSize: "receipt", tegamiSize: "tegami", tegamiDir: "tegami", tegamiFont: "tegami", tegamiRule: "tegami",
+  tegamiLocal: "tegami", renmei: ["letter", "tegami"] };
 function showKindSettings(k) {
   for (const label of document.querySelectorAll("#listBox .grid label[for]")) {
-    const id = label.getAttribute("for"), on = (SETTING_KIND[id] || "letter") === k;
+    const id = label.getAttribute("for");
+    let on = [].concat(SETTING_KIND[id] || "letter").includes(k);
+    if (id === "tegamiLocal") on = on && document.getElementById("tegamiFont").value === "local";
     label.hidden = !on;
-    document.getElementById(id).hidden = !on;
+    const ctl = document.getElementById(id);
+    (ctl.closest(".localfont") || ctl).hidden = !on;
   }
   for (const el of document.querySelectorAll(".editor [data-kind]")) el.hidden = el.dataset.kind !== k;
   document.getElementById("listBoxKind").textContent = `（${KIND_NAME[k]}）`;
@@ -2166,6 +2198,19 @@ function setTegamiDir(d) {
     lastInputAt = Date.now(); rememberSlot();
   }
   render();
+}
+// List this computer's fonts (Chrome / Edge: Local Font Access, asks once). Japanese names come first.
+// Other browsers: type the name; it works the same.
+async function readLocalFonts() {
+  if (!window.queryLocalFonts) { alert("このブラウザでは一覧を読めません。フォントの名前を入力してください（例：游教科書体、ヒラギノ明朝 ProN）。Chrome なら一覧から選べます。"); return; }
+  try {
+    const fams = [...new Set((await queryLocalFonts()).map(f => f.family))];
+    const jp = n => /[^\x00-\x7f]/.test(n);
+    fams.sort((a, b) => (jp(b) - jp(a)) || a.localeCompare(b, "ja"));
+    document.getElementById("localFontList").innerHTML = fams.map(n => `<option value="${esc(n)}">`).join("");
+    const inp = document.getElementById("tegamiLocal");
+    inp.focus(); if (inp.showPicker) try { inp.showPicker(); } catch (e) {}
+  } catch (e) { alert("フォントの一覧を読めませんでした（許可がないか、このページでは使えません）。名前を入力してください。"); }
 }
 // Print only after every font the sheet uses has arrived (the letter fonts are several MB).
 function printWhenReady() {
@@ -2203,11 +2248,12 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["receiptSize", "soufu-receiptsize", "1"], ["tegamiSize", "soufu-tegamisize", "12.5"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiFont", "soufu-tegamifont", "pen"], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["receiptSize", "soufu-receiptsize", "1"], ["tegamiSize", "soufu-tegamisize", "12.5"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiFont", "soufu-tegamifont", "pen"], ["tegamiLocal", "soufu-tegamilocal", ""], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
   el.addEventListener("change", () => { store.set(key, el.value); applyLines(); render(); });
+  if (el.tagName === "INPUT") el.addEventListener("input", () => { store.set(key, el.value); render(); });
 }
 applyLines();
 (() => {
