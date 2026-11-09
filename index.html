@@ -176,6 +176,10 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .tg > * { line-height: var(--lh); }
 .tg p { margin: 0; text-indent: 1em; }
 .tg p.first { text-indent: 0; }
+/* 箇条書き: indented one character, the mark in its own column so wrapped lines line up under the text */
+.tg .li { display: flex; padding-inline-start: 1em; }
+.tg .li .mk { flex: none; min-inline-size: 1em; padding-inline-end: 0.25em; }
+.tg .li .mk .tcy { text-combine-upright: all; }
 .tg .tcy { text-combine-upright: all; }
 .tg.f-pen { font-family: "SoufuPen", "SoufuSerif"; }
 .tg.f-fude { font-family: "SoufuFude", "SoufuSerif"; }
@@ -215,7 +219,7 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .rc-amt .val.blank { flex: 1; display: flex; justify-content: space-between; margin-left: 30mm; }
 .rc-tax { text-align: right; font-size: calc(9.5pt * var(--rk, 1)); margin-top: 1.5mm; }
 .rc-tadashi { margin-top: 7mm; font-size: calc(12pt * var(--rk, 1)); }
-.rc-tadashi b { font-weight: 600; margin-left: 4mm; }
+.rc-tadashi b { font-weight: 600; margin-left: 4mm; display: inline-block; vertical-align: top; }
 .rc-desc { margin: 3mm 0 0 13mm; display: grid; grid-template-columns: max-content max-content 1fr; font-size: calc(11pt * var(--rk, 1)); line-height: 1.8; }
 .rc-desc .full { grid-column: 1 / -1; }
 table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font-size: calc(11pt * var(--rk, 1)); }
@@ -535,7 +539,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 本文：
 拝啓　{時候}、山田様におかれましてはますますご清祥のこととお喜び申し上げます。
 
-（ここに本文の段落。段落と段落のあいだは空行を1つ）
+（ここに本文の段落。段落と段落のあいだは空行を1つ。段落の中で改行だけしたいときは、その行の終わりに「//」）
 
 同封物：
 領収書（土地・建物 売買代金）｜1通
@@ -620,7 +624,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 書き方：縦書き
 
 本文：
-（ここに本文の段落。段落と段落のあいだは空行を1つ）
+（ここに本文の段落。段落と段落のあいだは空行を1つ。段落の中で改行だけしたいときは、その行の終わりに「//」。箇条書きは行の頭に「・」か「1.」）
 【ここまで】
 ```
 
@@ -865,6 +869,8 @@ function listStyleKey(v) {
 const BR = /&lt;br\s*\/?&gt;/gi;
 const escBr = s => esc(s).replace(BR, "<br>");
 const escItem = s => escBr(s).replace(/\s*(\/\/|／／)\s*/g, "<br>");
+// In a body, a line that ends with "//" (or ／／) breaks the line there without starting a new paragraph.
+const brEnd = t => t.replace(/[\s　]*(\/\/|／／)$/, "<br>");
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -900,7 +906,7 @@ function parse(text) {
       const t = line.trim();
       if (!t) { flush(); continue; }
       if (/^(敬具|謹白|草々|かしこ)$/.test(t)) continue;
-      para.push(t.replace(/^[　 ]+/, ""));
+      para.push(brEnd(t.replace(/^[　 ]+/, "")));
     } else if (mode === "notes") {
       const t = line.trim();
       if (t) f.notes.push(t);
@@ -1286,7 +1292,7 @@ function renderReceipt(raw) {
       <div class="rc-to"><span class="nm">${orgs.map(o => `<span class="org">${esc(o)}</span>`).join("")}${esc(toName)}</span><span>${esc(honor)}</span></div>
       <div class="rc-amt"><span class="lbl">金額</span>${amtHtml}</div>
       ${taxHtml}
-      ${f["但し"] ? `<div class="rc-tadashi">但し<b>${esc(f["但し"])}</b></div>` : ""}
+      ${f["但し"] ? `<div class="rc-tadashi">但し<b>${escItem(f["但し"])}</b></div>` : ""}
       ${descHtml ? `<div class="rc-desc">${descHtml}</div>` : ""}
       ${tableHtml}
       <div class="rc-recv">${recv}</div>
@@ -1337,7 +1343,10 @@ function parseTegami(text) {
     if (!inBody) continue;
     if (!t) { flush(); continue; }
     if (/^(敬具|謹白|草々|かしこ|敬白|拝具)$/.test(t)) { f.closingWritten = t; continue; }
-    para.push(t.replace(/^[　 ]+/, ""));
+    // 箇条書き: a line starting with ・ - * or 1. 1) ① is one item of a list
+    const li = t.match(/^(?:([・\-*＊●◆■])|(\d{1,2}(?:[.．](?!\d)|[)）])|[①-⑳]))[\s　]*(.+)$/);
+    if (li) { flush(); f.body.push({ mark: li[1] ? "・" : li[2].replace(/\)$/, "）").replace(/\.$/, "．"), text: brEnd(li[3]) }); continue; }
+    para.push(brEnd(t.replace(/^[　 ]+/, "")));
   }
   flush();
   return f;
@@ -1360,6 +1369,8 @@ function tateHtml(raw) {  // raw text in, HTML out ("<br>" in the text still bre
     .replace(/\d[\d,，]*/g, x => { const n = x.replace(/[,，]/g, ""); return n.length <= 2 ? `<span class="tcy">${n}</span>` : [...n].map(c => KD[c]).join(""); }))
     .join("<br>");
 }
+// A list number in vertical text: "1．" / "2）" would leave the dot beside the digit, so it becomes ① ② … (up to ⑳).
+const tateMark = m => { const n = Number((m.match(/^(\d+)[．）]$/) || [])[1]); return n >= 1 && n <= 20 ? String.fromCharCode(0x2460 + n - 1) : m; };
 // Words to avoid: repeated words (重ね言葉) and direct words at a condolence; parting / breaking words at a celebration.
 const IMI = {
   "お悔やみ": ["重ね重ね", "重ね々", "たびたび", "度々", "ますます", "益々", "次々", "再び", "再度", "続いて", "続く", "くれぐれも", "いよいよ", "返す返す", "追って", "再三", "またまた", "いろいろ", "色々", "死ぬ", "死亡", "死去", "生きて", "生存", "急死", "ご冥福", "浮かばれない", "迷う"],
@@ -1394,17 +1405,19 @@ function renderTegami(raw) {
 
   const dateText = resolveDate(f["日付"]);
   const month = monthOf(dateText);
-  let body = f.body.map(p => p.replace(/[{｛]時候[}｝]/g, SEASON[month][0] + "の候"));
+  // body: paragraphs (strings) and list items ({mark, text})
+  const onText = fn => p => typeof p === "string" ? fn(p) : Object.assign({}, p, { text: fn(p.text) });
+  let body = f.body.map(onText(p => p.replace(/[{｛]時候[}｝]/g, SEASON[month][0] + "の候")));
   const fillTags = t => t.replace(/[{｛]([^{}｛｝]{1,6})[}｝]/g, (all, name) => { const key = SENDER_TAGS[name]; return key ? (sender[key] || "") : all; });
-  body = body.map(fillTags);
-  const om = body.length ? body[0].match(/^(拝啓|謹啓|前略|拝復|一筆申し上げます)/) : null;
+  body = body.map(onText(fillTags));
+  const om = body.length && typeof body[0] === "string" ? body[0].match(/^(拝啓|謹啓|前略|拝復|一筆申し上げます)/) : null;
   const opening = om && om[1];
   const closing = f["結語"] || f.closingWritten || { "拝啓": "敬具", "謹啓": "謹白", "前略": "草々", "拝復": "敬具", "一筆申し上げます": "かしこ" }[opening] || "";
 
   // checks
   if (!f["宛名"]) msgs.push("宛名がありません。「宛名：」に相手の名前を書いてください。");
   if (!body.length) msgs.push("本文がありません。");
-  const all = body.join("");
+  const all = body.map(p => typeof p === "string" ? p : p.text).join("");
   if (scene === "お悔やみ") {
     if (opening) msgs.push(`お悔やみの手紙では「${opening}」などの頭語を書かず、すぐに本題から始めます。`);
     if (/の候|候、/.test(all)) msgs.push("お悔やみの手紙では、時候のあいさつを入れません。");
@@ -1430,7 +1443,9 @@ function renderTegami(raw) {
   const fs = Number(document.getElementById("tegamiSize").value) || 12.5;
   const lh = fs * (tate ? 2.1 : 2);  // pt: the height of every line, and the spacing of the ruled lines
   page.innerHTML = `<div class="tg${tate ? "" : " yoko"}${rule ? " rule" : ""}${font === "pen" || font === "fude" ? " f-" + font : useLocal ? " f-local" : ""}" style="--lh:${lh}pt;--fs:${fs}pt">
-      ${body.map((p, i) => `<p class="${i === 0 && (opening || scene === "お悔やみ") ? "first" : ""}">${txBr(p)}</p>`).join("")}
+      ${body.map((p, i) => typeof p === "string"
+        ? `<p class="${i === 0 && (opening || scene === "お悔やみ") ? "first" : ""}">${txBr(p)}</p>`
+        : `<div class="li"><span class="mk">${tx(tate ? tateMark(p.mark) : p.mark)}</span><span>${txBr(p.text)}</span></div>`).join("")}
       ${closing ? `<div class="keigu">${esc(closing)}</div>` : ""}
       <div class="t-date">${esc(tate ? tateDate(dateText) : dateText)}</div>
       ${addr ? `<div class="t-addr">${tx(addr)}</div>` : ""}
