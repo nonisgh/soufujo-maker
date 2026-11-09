@@ -16,6 +16,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
 @font-face { font-family: "SoufuSerif"; font-weight: 400; src: url("fonts/NotoSerifJP-Regular.woff2") format("woff2"), url("fonts/NotoSerifJP-Regular.ttf") format("truetype"); }
+/* letter fonts (OFL): Klee One = pen / textbook style, Yuji Syuku = brush 楷書. Loaded only when a letter uses them. */
+@font-face { font-family: "SoufuPen"; font-weight: 400; src: url("fonts/KleeOne-Regular.woff2") format("woff2"); }
+@font-face { font-family: "SoufuFude"; font-weight: 400; src: url("fonts/YujiSyuku-Regular.woff2") format("woff2"); }
 @font-face { font-family: "SoufuMaru"; font-weight: 400; src: url("fonts/ZenMaruGothic-Regular.woff2") format("woff2"); }
 @font-face { font-family: "SoufuMaru"; font-weight: 600; src: url("fonts/ZenMaruGothic-Bold.woff2") format("woff2"); }
 @font-face { font-family: "SoufuSerif"; font-weight: 600; src: url("fonts/NotoSerifJP-SemiBold.woff2") format("woff2"), url("fonts/NotoSerifJP-SemiBold.ttf") format("truetype"); }
@@ -36,6 +39,10 @@ body { background: #e9e9ec; color: #000; font-family: -apple-system, "Hiragino S
 .kindtabs button + button { border-left: none; }
 .kindtabs button:last-child { border-radius: 0 8px 8px 0; }
 .kindtabs button.on { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }
+.kindtabs.dirtabs { width: 60%; margin-left: auto; }
+.kindtabs.dirtabs[hidden] { display: none; }
+.editor [hidden] { display: none !important; }
+.kindtabs.dirtabs button { font-size: 12px; font-weight: 400; padding: 4px 0; }
 .editor .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .editor button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #888; background: #fff; cursor: pointer; }
 .editor button.primary { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }
@@ -164,6 +171,8 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .tg p { margin: 0; text-indent: 1em; }
 .tg p.first { text-indent: 0; }
 .tg .tcy { text-combine-upright: all; }
+.tg.f-pen { font-family: "SoufuPen", "SoufuSerif"; }
+.tg.f-fude { font-family: "SoufuFude", "SoufuSerif"; }
 .tg .keigu { text-align: end; }
 .tg .t-date { text-indent: 2em; margin-block-start: var(--lh); }
 .tg .t-addr { text-align: end; padding-inline-end: 2em; }
@@ -249,6 +258,10 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
       <button type="button" id="tabReceipt" role="tab" onclick="switchKind('receipt')">領収書</button>
       <button type="button" id="tabTegami" role="tab" onclick="switchKind('tegami')">手紙</button>
     </div>
+    <div class="kindtabs dirtabs" id="dirTabs" hidden>
+      <button type="button" id="dirTate" onclick="setTegamiDir('tate')">縦書き</button>
+      <button type="button" id="dirYoko" onclick="setTegamiDir('yoko')">横書き</button>
+    </div>
     <textarea id="src" spellcheck="false"></textarea>
     <div class="row">
       <button class="primary" onclick="window.print()">印刷・PDFに保存</button>
@@ -307,7 +320,7 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
     </details>
 
     <details id="listBox">
-      <summary>書き方の設定</summary>
+      <summary>書き方の設定<span id="listBoxKind"></span></summary>
       <div class="grid">
         <label for="mode">モード</label>
         <select id="mode">
@@ -398,6 +411,12 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
           <option value="tate">縦書き（便箋らしく）</option>
           <option value="yoko">横書き</option>
         </select>
+        <label for="tegamiFont">手紙のフォント</label>
+        <select id="tegamiFont">
+          <option value="pen">ペン字（Klee One）</option>
+          <option value="fude">筆（Yuji Syuku）</option>
+          <option value="serif">明朝（送付状と同じ）</option>
+        </select>
         <label for="tegamiRule">手紙の罫線</label>
         <select id="tegamiRule">
           <option value="off">なし</option>
@@ -415,17 +434,19 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
           <option value="none">なし</option>
         </select>
       </div>
-      <div class="hint">モードを選ぶと、文字の大きさ・タイトルの字の間・間かくがまとめて変わります。そのあと細かく変えると「カスタム」になります。送付状データに「番号：①」「連名：姓を省く」のように書くと、そちらが優先されます。</div>
+      <div class="hint" data-kind="receipt" hidden>領収書の文字の大きさは決まっています。データに「控え：なし」と書くと、その1通だけ控えを作りません。</div>
+      <div class="hint" data-kind="tegami" hidden>手紙の文字の大きさは決まっています。手紙データに「書き方：横書き」「フォント：筆」「罫線：あり」のように書くと、そちらが優先されます。</div>
+      <div class="hint" data-kind="letter">モードを選ぶと、文字の大きさ・タイトルの字の間・間かくがまとめて変わります。そのあと細かく変えると「カスタム」になります。送付状データに「番号：①」「連名：姓を省く」のように書くと、そちらが優先されます。</div>
     </details>
 
-    <details id="sizeBox">
+    <details id="sizeBox" data-kind="letter">
       <summary>文字の大きさ</summary>
       <div class="grid" id="sizeGrid"></div>
       <div class="row"><button class="small" onclick="resetSizes()">元の大きさにもどす</button></div>
       <div class="hint">単位は pt（ポイント）。大きくしすぎて1枚に収まらないと、上に赤い字が出ます。</div>
     </details>
 
-    <details id="imgBox">
+    <details id="imgBox" data-kind="letter">
       <summary>画像</summary>
       <div class="row">
         <button class="small" onclick="document.getElementById('imgFile').click()">画像を追加</button>
@@ -435,7 +456,7 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
       <div class="hint">GPT などで作ったイラストやロゴを貼れます（PNG・JPG）。背景が透明な PNG だと、絵だけがきれいに乗ります。大きい画像は、入れるときに自動で小さくします。画像はフォーマットにもいっしょに保存され、ログイン中はクラウドにも同期されます。</div>
     </details>
 
-    <details id="gapBox">
+    <details id="gapBox" data-kind="letter">
       <summary>間かく</summary>
       <div class="grid" id="gapGrid"></div>
       <div class="row"><button class="small" onclick="resetGaps()">元の間かくにもどす</button></div>
@@ -552,6 +573,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
   - 例）先日いただいた品物のお礼
 - 最後に住所も入れるか：入れる／入れない
 - 書き方：縦書き／横書き
+- 字の雰囲気：ペン字／筆／明朝（書かなければ送付状メーカーの設定どおり）
 
 ## 【出力の形】
 
@@ -578,6 +600,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 - 場面：お礼／お祝い／お悔やみ のどれか（送付状メーカーが、場面に合わない言葉をチェックする）
 - 住所：最後に自分の住所も入れるなら「あり」、入れないなら「なし」
 - 書き方：縦書き／横書き
+- フォント：【入力】に字の雰囲気があるときだけ「フォント：ペン字」「フォント：筆」「フォント：明朝」の行を足す
 - 本文：結語（敬具など）、日付、自分の名前、相手の名前は書かない（自動で正しい位置に入る）。段落の頭の字下げも不要
 
 ## 【書き方のルール】
@@ -1260,7 +1283,7 @@ function renderReceipt(raw) {
 // 【手紙データ】: a personal letter (thanks, congratulations, condolence). The closing word follows the opening word
 // as in the cover letter; then the date, optionally the sender's address, the sender's name, and last the addressee.
 const isTegami = text => /【手紙データ】/.test(text);
-const TEGAMI_KEYS = ["日付", "宛名", "敬称", "場面", "かたさ", "書き方", "向き", "罫線", "住所", "名前", "結語"];
+const TEGAMI_KEYS = ["日付", "宛名", "敬称", "場面", "かたさ", "書き方", "向き", "罫線", "住所", "名前", "結語", "フォント", "字"];
 function parseTegami(text) {
   text = text.replace(/\r\n?/g, "\n").replace(/```[a-z]*\n?/g, "");
   const s = text.indexOf("【手紙データ】"), e = text.indexOf("【ここまで】");
@@ -1312,7 +1335,12 @@ function renderTegami(raw) {
   const tate = /横/.test(dv) ? false : /縦/.test(dv) ? true : document.getElementById("tegamiDir").value !== "yoko";
   const rv = f["罫線"] || "";
   const rule = /なし|off/i.test(rv) ? false : /あり|on/i.test(rv) ? true : document.getElementById("tegamiRule").value === "on";
+  // font: the data line フォント：ペン字／筆／明朝 wins over the setting
+  const fv = f["フォント"] || f["字"] || "";
+  const font = /筆|毛筆|楷書|fude/i.test(fv) ? "fude" : /ペン|教科書|pen/i.test(fv) ? "pen" : /明朝|serif/i.test(fv) ? "serif" : document.getElementById("tegamiFont").value;
   page.className = "page tegami";
+  document.getElementById("dirTate").classList.toggle("on", tate);
+  document.getElementById("dirYoko").classList.toggle("on", !tate);
   page.style.removeProperty("--sp");
   document.getElementById("paper2").hidden = true;
   document.getElementById("page2").innerHTML = "";
@@ -1354,7 +1382,7 @@ function renderTegami(raw) {
   honor = honor || "様";
 
   const lh = 12.5 * (tate ? 2.1 : 2);  // pt: the height of every line, and the spacing of the ruled lines
-  page.innerHTML = `<div class="tg${tate ? "" : " yoko"}${rule ? " rule" : ""}" style="--lh:${lh}pt">
+  page.innerHTML = `<div class="tg${tate ? "" : " yoko"}${rule ? " rule" : ""}${font === "serif" ? "" : " f-" + font}" style="--lh:${lh}pt">
       ${body.map((p, i) => `<p class="${i === 0 && (opening || scene === "お悔やみ") ? "first" : ""}">${txBr(p)}</p>`).join("")}
       ${closing ? `<div class="keigu">${esc(closing)}</div>` : ""}
       <div class="t-date">${esc(tate ? tateDate(dateText) : dateText)}</div>
@@ -1797,7 +1825,7 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["tegamiDir", "soufu-tegamidir"], ["tegamiRule", "soufu-tegamirule"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["tegamiDir", "soufu-tegamidir"], ["tegamiFont", "soufu-tegamifont"], ["tegamiRule", "soufu-tegamirule"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
@@ -2070,7 +2098,21 @@ function showKindTabs() {
     document.getElementById(id).setAttribute("aria-selected", k === kk);
   }
   document.getElementById("copyRulesBtn").textContent = `AI用ルールをコピー（${KIND_NAME[k]}）`;
+  document.getElementById("dirTabs").hidden = k !== "tegami";
+  showKindSettings(k);
   document.getElementById("dlRulesBtn").textContent = "ダウンロード";
+}
+// Settings panel: show only what the open kind uses. 文字の大きさ・間かく・画像 and most of 書き方の設定 are for the
+// cover letter; the receipt and the letter have their own few settings.
+const SETTING_KIND = { receiptCopy: "receipt", tegamiDir: "tegami", tegamiFont: "tegami", tegamiRule: "tegami" };
+function showKindSettings(k) {
+  for (const label of document.querySelectorAll("#listBox .grid label[for]")) {
+    const id = label.getAttribute("for"), on = (SETTING_KIND[id] || "letter") === k;
+    label.hidden = !on;
+    document.getElementById(id).hidden = !on;
+  }
+  for (const el of document.querySelectorAll(".editor [data-kind]")) el.hidden = el.dataset.kind !== k;
+  document.getElementById("listBoxKind").textContent = `（${KIND_NAME[k]}）`;
 }
 function rememberSlot() {
   const v = document.getElementById("src").value;
@@ -2085,6 +2127,18 @@ function switchKind(k) {
   const ok = typeof v === "string" && v.trim() && kindOf(v) === k;
   document.getElementById("src").value = ok ? v : KIND_SAMPLE()[k];
   rememberSlot();
+  render();
+}
+// 縦書き｜横書き buttons (shown on the 手紙 tab): change the setting, and the 書き方：line in the data if there is one.
+function setTegamiDir(d) {
+  const sel = document.getElementById("tegamiDir");
+  sel.value = d; store.set("soufu-tegamidir", d);
+  const src = document.getElementById("src");
+  const word = d === "yoko" ? "横書き" : "縦書き";
+  if (/^\s*(書き方|向き)\s*[：:].*$/m.test(src.value)) {
+    src.value = src.value.replace(/^(\s*)(書き方|向き)(\s*[：:]).*$/m, `$1$2$3${word}`);
+    lastInputAt = Date.now(); rememberSlot();
+  }
   render();
 }
 function loadSample(kind) {
@@ -2115,7 +2169,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiFont", "soufu-tegamifont", "pen"], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
