@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
 <title>送付状メーカー</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f4a3a'/%3E%3Crect x='17' y='8' width='30' height='36' rx='2' fill='%23fffdf6'/%3E%3Cpath d='M22 16h20M22 22h20M22 28h14' stroke='%239aa59d' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M8 28l24 16 24-16v24a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4z' fill='%23f3e6c8'/%3E%3Cpath d='M8 52l18-13M56 52L38 39' stroke='%23d9c79d' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M8 28l24 16 24-16' fill='none' stroke='%23d9c79d' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='44' r='7' fill='%23c0392b'/%3E%3Cpath d='M28.3 40.6h7.4M28.3 43.4h7.4M32 43.4v4.4' stroke='%23fffdf6' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E">
 <!--
@@ -148,6 +149,40 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .uimg-title { text-align: center; margin-top: calc(6mm * var(--sp)); }
 .uimg-title img { display: inline-block; height: auto; }
 .page > .uimg-title + h1 { margin-top: calc(4mm * var(--sp)); }
+
+/* receipt (領収書): drawn when the pasted text starts with 【領収書データ】; fixed sizes, framed like a paper receipt */
+.page.receipt { padding: 20mm 20mm 0; line-height: 1.6; font-size: 11pt; }
+.rc { border: 0.75pt solid #000; padding: 10mm 13mm 11mm; }
+.rc-top { display: flex; justify-content: space-between; font-size: 11pt; min-height: 1.6em; }
+.rc h1.rc-title { font-size: 24pt; font-weight: 600; letter-spacing: 0.6em; margin: 6mm 0 0 0.6em; text-align: center; line-height: 1.4; }
+.rc-to { margin-top: 8mm; width: 112mm; border-bottom: 0.75pt solid #000; padding: 0 2mm 1mm; font-size: 14pt; display: flex; align-items: flex-end; gap: 6mm; line-height: 1.5; }
+.rc-to .nm { flex: 1; }
+.rc-to .org { display: block; font-size: 11pt; }
+.rc-amt { margin-top: 8mm; border: 0.75pt solid #000; min-height: 24mm; display: flex; align-items: center; padding: 3mm 8mm; }
+.rc-amt .lbl { font-size: 12pt; }
+.rc-amt .val { margin-left: auto; font-size: 24pt; letter-spacing: 0.02em; white-space: nowrap; }
+.rc-amt .val.blank { flex: 1; display: flex; justify-content: space-between; margin-left: 30mm; }
+.rc-tax { text-align: right; font-size: 9.5pt; margin-top: 1.5mm; }
+.rc-tadashi { margin-top: 7mm; font-size: 12pt; }
+.rc-tadashi b { font-weight: 600; margin-left: 4mm; }
+.rc-desc { margin: 3mm 0 0 13mm; display: grid; grid-template-columns: max-content max-content 1fr; font-size: 11pt; line-height: 1.8; }
+.rc-desc .full { grid-column: 1 / -1; }
+table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font-size: 11pt; }
+.rc-tbl th, .rc-tbl td { border: 0.75pt solid #000; padding: 2.5mm 5mm; line-height: 1.6; }
+.rc-tbl th { font-weight: 400; letter-spacing: 1em; text-indent: 1em; }
+.rc-tbl td.amt { text-align: right; white-space: nowrap; width: 46mm; }
+.rc-tbl td.amt .yen { margin-left: 2mm; }
+.rc-tbl .sub { display: block; font-size: 9pt; line-height: 1.7; }
+.rc-tbl tr.total td { font-weight: 600; }
+.rc-tbl tr.total td:first-child { letter-spacing: 1em; }
+.rc-recv { margin-top: 7mm; font-size: 12pt; }
+.rc-bottom { margin-top: 9mm; display: flex; align-items: flex-end; gap: 8mm; }
+.rc-stamp { flex: none; width: 24mm; height: 30mm; border: 0.75pt dashed #777; color: #777; font-size: 8.5pt; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.5; }
+.rc-from { margin-left: auto; font-size: 11pt; line-height: 1.8; }
+.rc-from .nm { font-size: 13pt; display: flex; align-items: center; }
+.rc-from .role { font-size: 10.5pt; margin-right: 3mm; }
+.rc-from .reg { font-size: 10pt; }
+.rc-notes { margin-top: 5mm; font-size: 9pt; line-height: 1.8; color: #333; }
 .imgrow { display: grid; grid-template-columns: 44px 1fr; gap: 6px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 13px; }
 .imgrow img { width: 44px; height: 44px; object-fit: contain; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 10px 10px; border-radius: 6px; }
 .imgrow .ctl { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -173,16 +208,21 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 <div class="app">
   <div class="editor">
     <h2>送付状メーカー</h2>
-    <p>AIが出した「送付状データ」をここに貼ると、右に送付状ができます。できたら「印刷・PDFに保存」を押してください。<br>
+    <p>AIが出した「送付状データ」をここに貼ると、右に送付状ができます（「領収書データ」を貼ると領収書になります）。できたら「印刷・PDFに保存」を押してください。<br>
        印刷設定：A4／倍率100%／余白なし／ヘッダーとフッターはオフ</p>
     <textarea id="src" spellcheck="false"></textarea>
     <div class="row">
       <button class="primary" onclick="window.print()">印刷・PDFに保存</button>
       <button onclick="loadSample()">見本を入れる</button>
+      <button onclick="loadSample('receipt')">領収書の見本</button>
     </div>
     <div class="row">
       <button onclick="copyRules()">AI用ルールをコピー</button>
       <button onclick="downloadRules()">AI用ルールをダウンロード</button>
+    </div>
+    <div class="row">
+      <button onclick="copyRules('receipt')">領収書のAI用ルールをコピー</button>
+      <button onclick="downloadRules('receipt')">ダウンロード</button>
     </div>
     <div class="hint">「AI用ルール」をChatGPT・Geminiなどに貼る（またはファイルを添付する）と、この送付状メーカーに貼れる形で文章を書いてくれます。【入力】のところを書きかえて使ってください。</div>
     <div class="msg" id="msg"></div>
@@ -447,6 +487,71 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 10. 出力は【出力の形】のコードブロック1つだけ。説明を足すなら、そのあとに3行以内。
 </script>
 <!-- AI_RULES_END -->
+<!-- AI_RECEIPT_RULES_START -->
+<script type="text/plain" id="aiRulesReceipt">
+あなたは日本の領収書の書き方に詳しいアシスタントです。
+下の【入力】をもとに領収書の中身を作り、【出力の形】のとおりに答えてください。
+HTMLやデザインは作らないでください。
+
+## 【入力】（ここを書きかえる）
+
+- 日付：today（今日の日付・令和になる。西暦にしたいときは today:s。別の日にしたいときは「令和○年○月○日」）
+- 番号：（領収書の番号。なければ空欄）
+- 相手の会社名：（個人あてなら空欄）
+- 宛名：○○　○○
+- 何の代金か：
+- 内訳（名前と金額）：
+  - 例）売買代金（土地・建物）　11,500,000円
+- 受け取り方：銀行振込／現金／（空欄でもよい）
+- 差出人の肩書：（例：売主。なければ空欄）
+- 事業としての受け取りか：はい／いいえ（はい で5万円以上なら収入印紙の枠を出す）
+- 消費税：（インボイスなど、税込金額のうち消費税を書きたいときだけ。例：10%）
+- 登録番号：（インボイスの登録番号 T＋13桁。なければ空欄）
+
+## 【出力の形】
+
+かならず次の形で、【領収書データ】から【ここまで】までを1つのコードブロックに入れて出力してください。
+項目名（日付：など）は変えないでください。差出人の住所・氏名は書かないでください（自動で入ります）。
+
+```
+【領収書データ】
+日付：today
+番号：
+会社名：
+宛名：山田　太郎
+敬称：様
+但し：土地・建物の売買代金として
+
+説明：
+物件所在地：鹿児島市○○町一丁目
+地番：1234番5（土地・建物）
+
+内訳：
+売買代金（土地・建物）｜11,500,000
+税金分担額//固定資産税・都市計画税 令和8年度分//11月・12月の2か月分｜11,500
+
+受領方法：銀行振込
+肩書：売主
+収入印紙：なし
+
+備考：
+※（補足があれば1〜2行。なければ「備考：」の行ごと消す）
+【ここまで】
+```
+
+- 金額の合計は書かない（送付状メーカーが内訳から計算する）。どうしても書くときは「金額：」の行に書く（内訳の合計と合わないと赤字で知らせる）
+- 内訳：1行に1つ。「名前｜金額」の形（｜は全角の縦線）。金額は数字だけ（カンマはあってもよい、「円」は不要）
+  名前の下に小さく説明を入れたいときは「//」で区切る（例：税金分担額//固定資産税 令和8年度分）
+  内訳が1つだけのときも、その1行を書く。内訳を書かないときは「金額：」に合計を書く
+- 但し：「○○代として」「○○として」の形
+- 説明：物件の場所・品名など、但し書きを補う情報。「見出し：内容」の形で1行に1つ。なければ「説明：」の行ごと消す
+- 宛名：個人なら「姓　名」（全角スペース）。会社あてで担当者がいなければ空欄にして、敬称は「御中」
+- 受領方法：「銀行振込」「現金」など。書くと「上記の金額を、銀行振込にて正に領収いたしました。」になる
+- 収入印紙：事業としての受け取りで、金額が5万円以上なら「あり」。それ以外は「なし」
+- 消費税・登録番号：【入力】にあるときだけ書く（例：消費税：10%／登録番号：T1234567890123）。なければ行ごと消す
+- 出力は【出力の形】のコードブロック1つだけ。説明を足すなら、そのあとに3行以内
+</script>
+<!-- AI_RECEIPT_RULES_END -->
 <script>
 // Font-size settings: [css variable, label, default pt]
 const SIZES = [
@@ -486,6 +591,28 @@ const SAMPLE = `【送付状データ】
 
 備考：
 ※けんかにならないよう、名札シールもお使いください。
+【ここまで】`;
+
+const RECEIPT_SAMPLE = `【領収書データ】
+日付：today
+番号：0004
+宛名：ヌオギドラ
+敬称：様
+但し：首カバー代として
+
+説明：
+品名：首カバー（x・y・z・w 用）
+お渡し日：today
+
+内訳：
+首カバー（x・y・z用）｜3,300
+首カバー（w用・大きめ）//四本目のご誕生記念・名札シールつき｜1,500
+
+受領方法：現金
+肩書：
+
+備考：
+※ けんかにならないよう、名札シールもお使いください。
 【ここまで】`;
 
 // "today" / "今日" / "本日" / blank → today's date in Japanese era (Reiwa) form.
@@ -655,6 +782,8 @@ function senderFromInputs() {
 
 function render() {
   const raw = document.getElementById("src").value;
+  if (isReceipt(raw)) return renderReceipt(raw);
+  if (document.getElementById("page").classList.contains("receipt")) { document.getElementById("page").classList.remove("receipt"); applyLines(); }
   const f = parse(raw);
   const sender = senderFromInputs();
   for (const k of SENDER_KEYS) if (!f[k]) f[k] = sender[k];
@@ -821,6 +950,146 @@ function render() {
   } else { page2.innerHTML = ""; annexPages = []; clearExtraAnnexPages(0); }
   document.title = title + (person ? "_" + person.replace(/[\s　]/g, "") + honor : orgLines.length ? "_" + orgLines[orgLines.length - 1].replace(/[\s　]/g, "") + honor : "");
   check(f, fromLines.length);
+  try { localStorage.setItem("soufu-src", raw); } catch (e) {}
+  onLocalChange();
+}
+
+// ===== receipt (領収書) =====
+// The same tool also draws a receipt when the pasted text starts with 【領収書データ】. The total is always
+// worked out here from the 内訳 rows (an AI's arithmetic is not trusted); a 金額 line that disagrees is flagged.
+const isReceipt = text => /【領収書データ】/.test(text);
+// "印" is accepted but ignored (the seal mark was dropped), so older data does not break.
+const RECEIPT_KEYS = ["日付", "番号", "宛名", "会社名", "部署", "敬称", "金額", "但し", "受領方法", "肩書", "登録番号", "収入印紙", "印", "消費税", "タイトル",
+  "郵便番号", "住所", "建物名", "差出人会社名", "差出人部署", "氏名", "電話", "メール"];
+function parseReceipt(text) {
+  text = text.replace(/\r\n?/g, "\n").replace(/```[a-z]*\n?/g, "");
+  const s = text.indexOf("【領収書データ】"), e = text.indexOf("【ここまで】");
+  if (s >= 0) text = text.slice(s + "【領収書データ】".length, e > s ? e : undefined);
+  const f = { desc: [], rows: [], notes: [] };
+  let mode = null;
+  for (const raw of text.split("\n")) {
+    const t = raw.trim();
+    const m = t.match(/^([^：:\s]{1,8})\s*[：:]\s*(.*)$/);
+    let key = m && m[1];
+    if (key && /^(No|NO|№)[.．]?$/.test(key)) key = "番号";
+    if (key === "説明") { mode = "desc"; if (m[2].trim()) f.desc.push(m[2].trim()); continue; }
+    if (key === "内訳") { mode = "rows"; continue; }
+    if (key === "備考") { mode = "notes"; if (m[2].trim()) f.notes.push(m[2].trim()); continue; }
+    if (key && RECEIPT_KEYS.includes(key)) { f[key] = m[2].trim(); mode = null; continue; }
+    if (!t) continue;
+    if (mode === "desc") f.desc.push(t);
+    else if (mode === "notes") f.notes.push(t);
+    else if (mode === "rows") {
+      const p = t.replace(/^([-・*]|\d+[.．、)）])\s*/, "").split(/[｜|]/);
+      f.rows.push({ name: p[0].trim(), amt: (p[1] || "").trim() });
+    }
+  }
+  return f;
+}
+// "11,500,000" / "１１５００円" / "￥3,300" → 11500000; anything else (blank, "未定") → NaN.
+function yenNum(v) {
+  const t = String(v || "").replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[¥￥\\円,，\s　]/g, "").replace(/[－ー―\-]+$/, "");
+  return /^\d+$/.test(t) ? Number(t) : NaN;
+}
+const yen = n => n.toLocaleString("ja-JP");
+function renderReceipt(raw) {
+  const f = parseReceipt(raw);
+  const sender = senderFromInputs();
+  for (const k of SENDER_KEYS) if (!f[k]) f[k] = sender[k];
+  const page = document.getElementById("page");
+  page.className = "page receipt";
+  page.style.removeProperty("--sp");
+  document.getElementById("paper2").hidden = true;
+  document.getElementById("page2").innerHTML = "";
+  clearExtraAnnexPages(0);
+  annexUsed = false; annexPages = []; fitted = 1; shortLines = { fixed: 0, left: 0 };
+
+  const msgs = [], notes = [];
+  // amounts
+  const rows = f.rows.map(r => ({ ...r, n: yenNum(r.amt) }));
+  const priced = rows.filter(r => !isNaN(r.n));
+  const sum = priced.reduce((a, r) => a + r.n, 0);
+  const given = yenNum(f["金額"]);
+  rows.filter(r => r.amt && isNaN(r.n)).forEach(r => msgs.push(`内訳「${r.name.split(/\/\/|／／/)[0]}」の金額「${r.amt}」が数字として読めません。`));
+  let total = priced.length ? sum : given;
+  if (priced.length && !isNaN(given) && given !== sum) msgs.push(`金額（${yen(given)}円）と内訳の合計（${yen(sum)}円）が合いません。印刷には内訳の合計を使っています。`);
+  if (priced.length && priced.length < rows.length) msgs.push("金額が空の内訳があります。合計は、書いてある金額だけで計算しています。");
+  if (isNaN(total)) total = null;
+
+  // addressee: company / department lines, then the person; the honorific sits at the right end of the line
+  const split = v => (v || "").split(/[／/]/).map(x => x.trim()).filter(Boolean);
+  const orgs = [...split(f["会社名"]), ...split(f["部署"])];
+  let person = (f["宛名"] || "").trim(), honor = (f["敬称"] || "").trim();
+  const hm = person.match(/^(.*?)[\s　]*(様|さま|さん|殿|御中)$/);
+  if (hm && hm[1]) { person = hm[1]; honor = hm[2] === "御中" ? "御中" : hm[2] === "殿" ? "殿" : "様"; }
+  honor = honor || (person ? "様" : "御中");
+  let toName = person;
+  if (!toName && orgs.length) toName = orgs.pop();
+  if (!toName) msgs.push("宛名がありません。");
+
+  // description lines: "物件所在地：…" become two lined-up columns; other lines run across
+  const descHtml = f.desc.map(line => {
+    const m = line.match(/^([^：:]{1,10})[：:]\s*(.*)$/);
+    return m ? `<span class="k">${esc(m[1].trim())}</span><span>：</span><span>${escBr(m[2].trim().replace(/^today$/i, resolveDate("today")))}</span>`
+             : `<span class="full">${escBr(line)}</span>`;
+  }).join("");
+
+  const nameHtml = n => { const [a, ...rest] = n.split(/\s*(?:\/\/|／／)\s*/); return esc(a) + rest.map(x => `<span class="sub">${esc(x)}</span>`).join(""); };
+  const tableHtml = rows.length ? `<table class="rc-tbl"><tr><th>内訳</th><th>金額</th></tr>` +
+    rows.map(r => `<tr><td>${nameHtml(r.name)}</td><td class="amt">${isNaN(r.n) ? "" : yen(r.n)}<span class="yen">円</span></td></tr>`).join("") +
+    (rows.length > 1 ? `<tr class="total"><td>合計</td><td class="amt">${total === null ? "" : yen(total)}<span class="yen">円</span></td></tr>` : "") +
+    `</table>` : "";
+
+  // consumption tax: "消費税：10%" (prices include tax) prints the tax inside the total, as an invoice needs
+  const rate = Number(((f["消費税"] || "").replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).match(/(\d+)\s*[%％]/) || [])[1]);
+  const taxHtml = rate && total !== null ? `<div class="rc-tax">（税込　うち消費税等 ${rate}%　${yen(Math.floor(total * rate / (100 + rate)))}円）</div>` : "";
+
+  const how = (f["受領方法"] || "").trim().replace(/にて$/, "");
+  const recv = how ? `上記の金額を、${esc(how)}にて正に領収いたしました。` : "上記の金額を正に領収いたしました。";
+  const stampOn = /あり|要|必要|on/i.test(f["収入印紙"] || "");
+  if (!f["収入印紙"] && total !== null && total >= 50000)
+    notes.push("5万円以上の領収書です。お仕事（事業）として受け取るときは収入印紙が必要です。印紙の枠を出すときは「収入印紙：あり」と書いてください（家を売ったときなど、事業でない受け取りなら不要です）。");
+
+  const [a1, ...ar] = (f["住所"] || "").split("／").map(v => v.trim());
+  const a2 = [...ar, (f["建物名"] || "").trim()].filter(Boolean).join("　");
+  const role = (f["肩書"] || "").trim();
+  const reg = (f["登録番号"] || "").trim();
+  const fromHtml = [
+    f["郵便番号"] && `<div>〒${esc(f["郵便番号"])}</div>`,
+    a1 && `<div>${esc(a1)}</div>`, a2 && `<div>${esc(a2)}</div>`,
+    f["差出人会社名"] && `<div>${esc(f["差出人会社名"])}</div>`,
+    f["差出人部署"] && `<div>${esc(f["差出人部署"])}</div>`,
+    (f["氏名"] || role) && `<div class="nm">${role ? `<span class="role">${esc(role)}</span>` : ""}${esc(f["氏名"] || "")}</div>`,
+    f["電話"] && `<div>電話: ${esc(f["電話"])}</div>`,
+    reg && `<div class="reg">登録番号: ${esc(reg)}</div>`,
+  ].filter(Boolean).join("");
+  if (!f["氏名"] && !f["差出人会社名"]) msgs.push("差出人がありません。下の「差出人」に入力してください。");
+
+  const amtHtml = total === null
+    ? `<span class="val blank"><span>￥</span><span>－</span></span>`
+    : `<span class="val">￥${yen(total)}－</span>`;
+  const no = (f["番号"] || "").trim();
+  page.innerHTML = `<div class="rc">
+      <div class="rc-top"><span>${no ? "No. " + esc(no) : ""}</span><span>${esc(resolveDate(f["日付"]))}</span></div>
+      <h1 class="rc-title">${esc(f["タイトル"] || "領収書")}</h1>
+      <div class="rc-to"><span class="nm">${orgs.map(o => `<span class="org">${esc(o)}</span>`).join("")}${esc(toName)}</span><span>${esc(honor)}</span></div>
+      <div class="rc-amt"><span class="lbl">金額</span>${amtHtml}</div>
+      ${taxHtml}
+      ${f["但し"] ? `<div class="rc-tadashi">但し<b>${esc(f["但し"])}</b></div>` : ""}
+      ${descHtml ? `<div class="rc-desc">${descHtml}</div>` : ""}
+      ${tableHtml}
+      <div class="rc-recv">${recv}</div>
+      <div class="rc-bottom">${stampOn ? `<div class="rc-stamp">収入<br>印紙</div>` : ""}<div class="rc-from">${fromHtml}</div></div>
+    </div>
+    ${f.notes.length ? `<div class="rc-notes">${f.notes.map(n => `<div>${escBr(n)}</div>`).join("")}</div>` : ""}
+    <div class="end"></div>`;
+  if (!f["但し"]) msgs.push("但し書き（何の代金か）がありません。「但し：○○代として」と書いてください。");
+  if (total === null) notes.push("金額が入っていません。手書きで入れるときは、そのまま印刷できます。");
+  if (overflows(page)) msgs.push("1枚に収まっていません。内訳や説明を短くしてください。");
+  document.title = (f["タイトル"] || "領収書") + (toName ? "_" + toName.replace(/[\s　]/g, "") + honor : "");
+  document.getElementById("msg").innerHTML = msgs.map(t => `<span class="warn">${esc(t)}</span>`).concat(notes.map(t => `<span class="ok">${esc(t)}</span>`)).join("<br>")
+    || `<span class="ok">OK：領収書が1枚に収まっています。${total !== null ? `金額は ${yen(total)}円 です。` : ""}</span>`;
   try { localStorage.setItem("soufu-src", raw); } catch (e) {}
   onLocalChange();
 }
@@ -1477,25 +1746,26 @@ function buildSender() {
 }
 
 // AI rules: the prompt that other AIs read, embedded below so it works offline and on GitHub Pages alike.
-function aiRules() { return document.getElementById("aiRules").textContent.replace(/^\n+/, ""); }
-function copyRules() {
-  const done = () => { document.getElementById("msg").innerHTML = `<span class="ok">AI用ルールをコピーしました。AIの入力欄に貼りつけてください。</span>`; };
-  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(aiRules()).then(done, fallback);
+function aiRules(kind) { return document.getElementById(kind === "receipt" ? "aiRulesReceipt" : "aiRules").textContent.replace(/^\n+/, ""); }
+function copyRules(kind) {
+  const what = kind === "receipt" ? "領収書のAI用ルール" : "AI用ルール";
+  const done = () => { document.getElementById("msg").innerHTML = `<span class="ok">${what}をコピーしました。AIの入力欄に貼りつけてください。</span>`; };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(aiRules(kind)).then(done, fallback);
   else fallback();
   function fallback() {
-    const ta = document.createElement("textarea"); ta.value = aiRules(); document.body.appendChild(ta);
+    const ta = document.createElement("textarea"); ta.value = aiRules(kind); document.body.appendChild(ta);
     ta.select(); document.execCommand("copy"); ta.remove(); done();
   }
 }
-function downloadRules() {
+function downloadRules(kind) {
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([aiRules()], { type: "text/markdown;charset=utf-8" }));
-  a.download = "送付状ルール_AI用.md";
+  a.href = URL.createObjectURL(new Blob([aiRules(kind)], { type: "text/markdown;charset=utf-8" }));
+  a.download = kind === "receipt" ? "領収書ルール_AI用.md" : "送付状ルール_AI用.md";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-function loadSample() { document.getElementById("src").value = SAMPLE; render(); }
+function loadSample(kind) { document.getElementById("src").value = kind === "receipt" ? RECEIPT_SAMPLE : SAMPLE; render(); }
 
 const src = document.getElementById("src");
 let saved = null;
