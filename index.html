@@ -30,6 +30,11 @@ body { background: #e9e9ec; color: #000; font-family: -apple-system, "Hiragino S
 .editor h2 { font-size: 16px; margin: 0 0 8px; }
 .editor p { font-size: 13px; color: #444; margin: 0 0 10px; line-height: 1.6; }
 .editor textarea { width: 100%; height: 44vh; font: 13px/1.6 ui-monospace, Menlo, monospace; padding: 10px; border: 1px solid #bbb; border-radius: 8px; background: #fff; }
+.kindtabs { display: flex; gap: 0; margin: 0 0 6px; }
+.kindtabs button { flex: 1; font: inherit; font-size: 14px; font-weight: 600; padding: 7px 0; border: 1px solid #888; background: #fff; color: #333; cursor: pointer; }
+.kindtabs button:first-child { border-radius: 8px 0 0 8px; }
+.kindtabs button:last-child { border-radius: 0 8px 8px 0; border-left: none; }
+.kindtabs button.on { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }
 .editor .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .editor button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #888; background: #fff; cursor: pointer; }
 .editor button.primary { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }
@@ -153,8 +158,10 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 /* receipt (領収書): drawn when the pasted text starts with 【領収書データ】; fixed sizes, framed like a paper receipt */
 .page.receipt { padding: 20mm 20mm 0; line-height: 1.6; font-size: 11pt; }
 .rc { border: 0.75pt solid #000; padding: 10mm 13mm 11mm; position: relative; }
-/* the copy (控え) on page 2: a red circled 控 beside the title */
-.rc-copy { position: absolute; right: 14mm; top: 19mm; width: 15mm; height: 15mm; border: 1pt solid #c0392b; border-radius: 50%; color: #c0392b; font-size: 13pt; font-weight: 600; display: flex; align-items: center; justify-content: center; line-height: 1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+/* the copy (控え) on page 2: a red round "控" like a self-inking office stamp (Shachihata business stamps are
+   a 16mm circle in red), a little larger, slightly tilted, with a faint ink texture */
+.rc-copy { position: absolute; right: 12mm; top: 16mm; width: 19mm; height: 19mm; transform: rotate(-8deg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rc-copy svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .rc-top { display: flex; justify-content: space-between; font-size: 11pt; min-height: 1.6em; }
 .rc h1.rc-title { font-size: 24pt; font-weight: 600; letter-spacing: 0.6em; margin: 6mm 0 0 0.6em; text-align: center; line-height: 1.4; }
 .rc-to { margin-top: 8mm; width: 112mm; border-bottom: 0.75pt solid #000; padding: 0 2mm 1mm; font-size: 14pt; display: flex; align-items: flex-end; gap: 6mm; line-height: 1.5; }
@@ -215,11 +222,14 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
     <h2>送付状メーカー</h2>
     <p>AIが出した「送付状データ」をここに貼ると、右に送付状ができます（「領収書データ」を貼ると領収書になります）。できたら「印刷・PDFに保存」を押してください。<br>
        印刷設定：A4／倍率100%／余白なし／ヘッダーとフッターはオフ</p>
+    <div class="kindtabs" role="tablist">
+      <button type="button" id="tabLetter" role="tab" onclick="switchKind('letter')">送付状</button>
+      <button type="button" id="tabReceipt" role="tab" onclick="switchKind('receipt')">領収書</button>
+    </div>
     <textarea id="src" spellcheck="false"></textarea>
     <div class="row">
       <button class="primary" onclick="window.print()">印刷・PDFに保存</button>
       <button onclick="loadSample()">見本を入れる</button>
-      <button onclick="loadSample('receipt')">領収書の見本</button>
     </div>
     <div class="row">
       <button onclick="copyRules()">AI用ルールをコピー</button>
@@ -798,6 +808,7 @@ function senderFromInputs() {
 
 function render() {
   const raw = document.getElementById("src").value;
+  showKindTabs();
   if (isReceipt(raw)) return renderReceipt(raw);
   if (document.getElementById("page").classList.contains("receipt")) { document.getElementById("page").classList.remove("receipt"); applyLines(); }
   const f = parse(raw);
@@ -974,6 +985,21 @@ function render() {
 // The same tool also draws a receipt when the pasted text starts with 【領収書データ】. The total is always
 // worked out here from the 内訳 rows (an AI's arithmetic is not trusted); a 金額 line that disagrees is flagged.
 const isReceipt = text => /【領収書データ】/.test(text);
+const COPY_STAMP = `<div class="rc-copy"><svg viewBox="0 0 100 100" aria-label="控">
+  <defs>
+    <filter id="inkRough" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.1" result="d"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="2" seed="3" result="spots"/>
+      <feColorMatrix in="spots" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -7 0 0 0 5.2" result="mask"/>
+      <feComposite in="d" in2="mask" operator="in"/>
+    </filter>
+  </defs>
+  <g filter="url(#inkRough)" fill="#d93a2b" stroke="#d93a2b">
+    <circle cx="50" cy="50" r="45" fill="none" stroke-width="6.5"/>
+    <text x="50" y="52" text-anchor="middle" dominant-baseline="central" font-family="SoufuSerif" font-weight="600" font-size="60" stroke-width="1.6">控</text>
+  </g>
+</svg></div>`;
 // "印" is accepted but ignored (the red seal mark was dropped), so older data does not break.
 // "印の欄" leaves a blank square for pressing a seal: あり = 27mm, or a size such as 30mm.
 const RECEIPT_KEYS = ["控え", "印の欄", "日付", "番号", "宛名", "会社名", "部署", "敬称", "金額", "但し", "受領方法", "肩書", "登録番号", "収入印紙", "印", "消費税", "タイトル",
@@ -1108,7 +1134,7 @@ function renderReceipt(raw) {
   document.getElementById("paper2").hidden = !copyOn;
   page2.style.cssText = "";
   page2.className = "page receipt annex";
-  page2.innerHTML = copyOn ? page.innerHTML.replace('<div class="rc">', '<div class="rc"><div class="rc-copy">控</div>') : "";
+  page2.innerHTML = copyOn ? page.innerHTML.replace('<div class="rc">', '<div class="rc">' + COPY_STAMP) : "";
   if (!f["但し"]) msgs.push("但し書き（何の代金か）がありません。「但し：○○代として」と書いてください。");
   if (total === null) notes.push("金額が入っていません。手書きで入れるときは、そのまま印刷できます。");
   if (overflows(page)) msgs.push("1枚に収まっていません。内訳や説明を短くしてください。");
@@ -1575,7 +1601,8 @@ function applySender(o) {
 }
 
 function collectState() {
-  return { v: 1, current: { settings: collectSettings(), sender: senderFromInputs(), src: document.getElementById("src").value },
+  return { v: 1, current: { settings: collectSettings(), sender: senderFromInputs(), src: document.getElementById("src").value,
+                            srcLetter: srcSlots.letter, srcReceipt: srcSlots.receipt },
            formats, senders };
 }
 function applyState(d) {
@@ -1587,6 +1614,9 @@ function applyState(d) {
       applySettings(d.current.settings);
       applySender(d.current.sender);
       if (typeof d.current.src === "string") document.getElementById("src").value = d.current.src;
+      for (const [k, key, field] of [["letter", "soufu-src-letter", "srcLetter"], ["receipt", "soufu-src-receipt", "srcReceipt"]])
+        if (typeof d.current[field] === "string") { srcSlots[k] = d.current[field]; store.set(key, d.current[field]); }
+      if (typeof d.current.src === "string") rememberSlot();
     }
     refreshSavedLists();
     render();
@@ -1700,6 +1730,9 @@ function applyCloud(snap, first) {
   }
   if (!first && (snap.metadata.hasPendingWrites || d.writer === CLIENT)) return;  // our own write coming back
   if (!first && saveTimer) return;                                                 // an unsaved local edit wins; it is uploaded right after
+  // Typing right now (or a moment ago): keep what is on screen and upload it, instead of replacing the text
+  // under the cursor (that made the box feel impossible to type in, especially while converting kana with an IME).
+  if (!first && (document.activeElement === document.getElementById("src") || Date.now() - lastInputAt < 8000)) { onLocalChange(); return; }
   if (d.json === lastJson) return;
   let state;
   try { state = JSON.parse(d.json); } catch (e) { cloudStatus("クラウドのデータが読めませんでした。"); return; }
@@ -1790,13 +1823,46 @@ function downloadRules(kind) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-function loadSample(kind) { document.getElementById("src").value = kind === "receipt" ? RECEIPT_SAMPLE : SAMPLE; render(); }
+// 送付状 and 領収書 each keep their own text, so switching never loses the other one.
+// The tab follows the text: pasting 【領収書データ】 while on 送付状 moves to 領収書 (the 送付状 text stays as it was).
+var srcSlots = { letter: store.get("soufu-src-letter", null), receipt: store.get("soufu-src-receipt", null) };
+var lastInputAt = 0;
+function currentKind() { return isReceipt(document.getElementById("src").value) ? "receipt" : "letter"; }
+function showKindTabs() {
+  const k = currentKind();
+  document.getElementById("tabLetter").classList.toggle("on", k === "letter");
+  document.getElementById("tabReceipt").classList.toggle("on", k === "receipt");
+  document.getElementById("tabLetter").setAttribute("aria-selected", k === "letter");
+  document.getElementById("tabReceipt").setAttribute("aria-selected", k === "receipt");
+}
+function rememberSlot() {
+  const v = document.getElementById("src").value;
+  const k = currentKind();
+  srcSlots[k] = v;
+  store.set(k === "receipt" ? "soufu-src-receipt" : "soufu-src-letter", v);
+}
+function switchKind(k) {
+  if (currentKind() === k) return;
+  rememberSlot();
+  const v = srcSlots[k];
+  const ok = typeof v === "string" && v.trim() && (k === "receipt") === isReceipt(v);
+  document.getElementById("src").value = ok ? v : (k === "receipt" ? RECEIPT_SAMPLE : SAMPLE);
+  rememberSlot();
+  render();
+}
+function loadSample(kind) {
+  const k = kind || currentKind();
+  document.getElementById("src").value = k === "receipt" ? RECEIPT_SAMPLE : SAMPLE;
+  rememberSlot();
+  render();
+}
 
 const src = document.getElementById("src");
 let saved = null;
 try { saved = localStorage.getItem("soufu-src"); } catch (e) {}
 src.value = saved || SAMPLE;
-src.addEventListener("input", render);
+if (srcSlots[currentKind()] == null) rememberSlot();
+src.addEventListener("input", () => { lastInputAt = Date.now(); rememberSlot(); render(); });
 buildSender();
 (() => {
   const r = document.getElementById("renmei");
