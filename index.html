@@ -33,7 +33,8 @@ body { background: #e9e9ec; color: #000; font-family: -apple-system, "Hiragino S
 .kindtabs { display: flex; gap: 0; margin: 0 0 6px; }
 .kindtabs button { flex: 1; font: inherit; font-size: 14px; font-weight: 600; padding: 7px 0; border: 1px solid #888; background: #fff; color: #333; cursor: pointer; }
 .kindtabs button:first-child { border-radius: 8px 0 0 8px; }
-.kindtabs button:last-child { border-radius: 0 8px 8px 0; border-left: none; }
+.kindtabs button + button { border-left: none; }
+.kindtabs button:last-child { border-radius: 0 8px 8px 0; }
 .kindtabs button.on { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }
 .editor .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .editor button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #888; background: #fff; cursor: pointer; }
@@ -155,6 +156,27 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .uimg-title img { display: inline-block; height: auto; }
 .page > .uimg-title + h1 { margin-top: calc(4mm * var(--sp)); }
 
+/* letter (手紙): drawn when the pasted text starts with 【手紙データ】. Vertical (縦書き) by default, like writing paper:
+   body → 結語 → date → (address) → own name at the bottom → the addressee at the top, last. */
+.page.tegami { padding: 24mm 22mm; }
+.tg { writing-mode: vertical-rl; width: 166mm; height: 249mm; overflow: hidden; font-size: 12.5pt; line-height: var(--lh); text-align: justify; }
+.tg > * { line-height: var(--lh); }
+.tg p { margin: 0; text-indent: 1em; }
+.tg p.first { text-indent: 0; }
+.tg .tcy { text-combine-upright: all; }
+.tg .keigu { text-align: end; }
+.tg .t-date { text-indent: 2em; margin-block-start: var(--lh); }
+.tg .t-addr { text-align: end; padding-inline-end: 2em; }
+.tg .t-name { text-align: end; padding-inline-end: 1em; font-size: 13.5pt; }
+.tg .t-to { margin-block-start: var(--lh); font-size: 14pt; }
+.tg .t-to .sama { margin-inline-start: 1em; }
+.tg.rule { -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  background-image: repeating-linear-gradient(to left, transparent 0, transparent calc(var(--lh) - 0.6pt), #d9c9b0 calc(var(--lh) - 0.6pt), #d9c9b0 var(--lh)); }
+.tg.yoko { writing-mode: horizontal-tb; width: auto; height: 249mm; }
+.tg.yoko .t-date { text-indent: 1em; }
+.tg.yoko .t-addr, .tg.yoko .t-name { text-align: right; padding-right: 0; }
+.tg.yoko.rule { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--lh) - 0.6pt), #d9c9b0 calc(var(--lh) - 0.6pt), #d9c9b0 var(--lh)); }
+
 /* receipt (領収書): drawn when the pasted text starts with 【領収書データ】; fixed sizes, framed like a paper receipt */
 .page.receipt { padding: 20mm 20mm 0; line-height: 1.6; font-size: 11pt; }
 .rc { border: 0.75pt solid #000; padding: 10mm 13mm 11mm; position: relative; }
@@ -220,11 +242,12 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
 <div class="app">
   <div class="editor">
     <h2>送付状メーカー</h2>
-    <p>AIが出した「送付状データ」をここに貼ると、右に送付状ができます（「領収書データ」を貼ると領収書になります）。できたら「印刷・PDFに保存」を押してください。<br>
+    <p>AIが出した「送付状データ」をここに貼ると、右に送付状ができます（「領収書データ」なら領収書、「手紙データ」なら手紙）。できたら「印刷・PDFに保存」を押してください。<br>
        印刷設定：A4／倍率100%／余白なし／ヘッダーとフッターはオフ</p>
     <div class="kindtabs" role="tablist">
       <button type="button" id="tabLetter" role="tab" onclick="switchKind('letter')">送付状</button>
       <button type="button" id="tabReceipt" role="tab" onclick="switchKind('receipt')">領収書</button>
+      <button type="button" id="tabTegami" role="tab" onclick="switchKind('tegami')">手紙</button>
     </div>
     <textarea id="src" spellcheck="false"></textarea>
     <div class="row">
@@ -232,12 +255,8 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
       <button onclick="loadSample()">見本を入れる</button>
     </div>
     <div class="row">
-      <button onclick="copyRules()">AI用ルールをコピー</button>
-      <button onclick="downloadRules()">AI用ルールをダウンロード</button>
-    </div>
-    <div class="row">
-      <button onclick="copyRules('receipt')">領収書のAI用ルールをコピー</button>
-      <button onclick="downloadRules('receipt')">ダウンロード</button>
+      <button id="copyRulesBtn" onclick="copyRules()">AI用ルールをコピー</button>
+      <button id="dlRulesBtn" onclick="downloadRules()">AI用ルールをダウンロード</button>
     </div>
     <div class="hint">「AI用ルール」をChatGPT・Geminiなどに貼る（またはファイルを添付する）と、この送付状メーカーに貼れる形で文章を書いてくれます。【入力】のところを書きかえて使ってください。</div>
     <div class="msg" id="msg"></div>
@@ -374,6 +393,16 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
           <option value="on">つくる（印刷すると2枚目に ◯控 つきで出る）</option>
           <option value="off">つくらない</option>
         </select>
+        <label for="tegamiDir">手紙の向き</label>
+        <select id="tegamiDir">
+          <option value="tate">縦書き（便箋らしく）</option>
+          <option value="yoko">横書き</option>
+        </select>
+        <label for="tegamiRule">手紙の罫線</label>
+        <select id="tegamiRule">
+          <option value="off">なし</option>
+          <option value="on">うすく入れる</option>
+        </select>
         <label for="listStyle">同封物の番号</label>
         <select id="listStyle">
           <option value="1.">1.　2.　3.</option>
@@ -507,6 +536,68 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 10. 出力は【出力の形】のコードブロック1つだけ。説明を足すなら、そのあとに3行以内。
 </script>
 <!-- AI_RULES_END -->
+<!-- AI_TEGAMI_RULES_START -->
+<script type="text/plain" id="aiRulesTegami">
+あなたは日本語の手紙の書き方に詳しいアシスタントです。
+下の【入力】をもとに手紙の文章を作り、【出力の形】のとおりに答えてください。
+HTMLやデザインは作らないでください。文章だけでOKです。
+
+## 【入力】（ここを書きかえる）
+
+- 日付：today（今日の日付・令和になる。別の日にしたいときは「令和○年○月○日」）
+- 相手の名前：○○　○○
+- 場面：お礼／お祝い／お悔やみ（どれか。お祝いなら何のお祝いかも）
+- かたさ：ていねい／やわらかめ（ていねい＝拝啓〜敬具つき。やわらかめ＝季節のひとことから始める、です・ます の手紙）
+- 伝えたいこと（箇条書きでOK）：
+  - 例）先日いただいた品物のお礼
+- 最後に住所も入れるか：入れる／入れない
+- 書き方：縦書き／横書き
+
+## 【出力の形】
+
+かならず次の形で、【手紙データ】から【ここまで】までを1つのコードブロックに入れて出力してください。
+項目名（日付：など）は変えないでください。自分の名前と住所は書かないでください（自動で入ります）。
+
+```
+【手紙データ】
+日付：today
+宛名：山田　花子
+敬称：様
+場面：お礼
+かたさ：やわらかめ
+住所：なし
+書き方：縦書き
+
+本文：
+（ここに本文の段落。段落と段落のあいだは空行を1つ）
+【ここまで】
+```
+
+- 日付：【入力】が today なら「today」とだけ書く（送付状メーカーが今日の日付を入れる）
+- 宛名：姓と名のあいだは全角スペース。敬称は「様」（恩師などには「先生」）
+- 場面：お礼／お祝い／お悔やみ のどれか（送付状メーカーが、場面に合わない言葉をチェックする）
+- 住所：最後に自分の住所も入れるなら「あり」、入れないなら「なし」
+- 書き方：縦書き／横書き
+- 本文：結語（敬具など）、日付、自分の名前、相手の名前は書かない（自動で正しい位置に入る）。段落の頭の字下げも不要
+
+## 【書き方のルール】
+
+1. A4で1枚に収める。本文は3〜6段落、1段落は1〜3文。
+2. 手紙は「前文 → 主文 → 末文」の順に書く。
+   - 前文：ていねい なら「拝啓」＋時候のあいさつ＋相手を気づかう言葉。やわらかめ なら季節のひとこと（例：「木々の葉が色づく季節になりましたね。」）から始める
+   - 主文：本当に伝えたいこと。「さて、」「このたびは」「先日は」などで始める
+   - 末文：相手の健康や幸せを願う言葉でしめくくる（例：「どうぞお体に気をつけてお過ごしください。」）
+3. 時候のあいさつは、日付が today のときは「{時候}」と書く（例：「拝啓　{時候}、いかがお過ごしでしょうか。」）。日付が指定されていればその月に合わせて書く。
+4. お祝いの手紙：「切れる・別れる・離れる・終わる・去る・戻る・壊れる・再び・重ね重ね・たびたび・くれぐれも」などの忌み言葉を使わない。
+5. お悔やみの手紙：
+   - 「拝啓」などの頭語と、時候のあいさつを書かない。いきなりお悔やみの言葉から始める
+   - 「重ね重ね・たびたび・ますます・次々・再び・くれぐれも・いよいよ」などの重ね言葉や続く言葉を使わない
+   - 「死ぬ・死亡・生きる」などの直接の言葉を使わない（「ご逝去」「ご生前」と言いかえる）
+   - 長くしすぎない。相手を気づかう言葉でしめくくる
+6. かたすぎず、気持ちが伝わる言葉で。決まり文句だけを並べない。
+7. 出力は【出力の形】のコードブロック1つだけ。説明を足すなら、そのあとに3行以内。
+</script>
+<!-- AI_TEGAMI_RULES_END -->
 <!-- AI_RECEIPT_RULES_START -->
 <script type="text/plain" id="aiRulesReceipt">
 あなたは日本の領収書の書き方に詳しいアシスタントです。
@@ -616,6 +707,24 @@ const SAMPLE = `【送付状データ】
 
 備考：
 ※けんかにならないよう、名札シールもお使いください。
+【ここまで】`;
+
+const TEGAMI_SAMPLE = `【手紙データ】
+日付：today
+宛名：ヌオギドラ
+敬称：様
+場面：お礼
+かたさ：やわらかめ
+住所：なし
+
+本文：
+木々の葉が色づく季節になりましたね。
+
+先日は、四本の首でていねいに選んでくださった、どんぐりの詰め合わせを送ってくださり、本当にありがとうございました。
+
+x・y・z・w、それぞれのおすすめが一つずつ入っていて、どれから食べようか、家族で楽しく迷っています。
+
+寒くなってまいりましたので、四本とも首を冷やさないよう、どうぞお体に気をつけてお過ごしください。
 【ここまで】`;
 
 const RECEIPT_SAMPLE = `【領収書データ】
@@ -810,7 +919,9 @@ function render() {
   const raw = document.getElementById("src").value;
   showKindTabs();
   if (isReceipt(raw)) return renderReceipt(raw);
-  if (document.getElementById("page").classList.contains("receipt")) { document.getElementById("page").classList.remove("receipt"); applyLines(); }
+  if (isTegami(raw)) return renderTegami(raw);
+  { const pg = document.getElementById("page");
+    if (pg.classList.contains("receipt") || pg.classList.contains("tegami")) { pg.className = "page"; applyLines(); } }
   const f = parse(raw);
   const sender = senderFromInputs();
   for (const k of SENDER_KEYS) if (!f[k]) f[k] = sender[k];
@@ -1141,6 +1252,122 @@ function renderReceipt(raw) {
   document.title = (f["タイトル"] || "領収書") + (toName ? "_" + toName.replace(/[\s　]/g, "") + honor : "");
   document.getElementById("msg").innerHTML = msgs.map(t => `<span class="warn">${esc(t)}</span>`).concat(notes.map(t => `<span class="ok">${esc(t)}</span>`)).join("<br>")
     || `<span class="ok">OK：領収書が1枚に収まっています。${total !== null ? `金額は ${yen(total)}円 です。` : ""}${copyOn ? "2枚目に控えを作りました（印刷は2枚）。" : ""}</span>`;
+  try { localStorage.setItem("soufu-src", raw); } catch (e) {}
+  onLocalChange();
+}
+
+// ===== letter (手紙) =====
+// 【手紙データ】: a personal letter (thanks, congratulations, condolence). The closing word follows the opening word
+// as in the cover letter; then the date, optionally the sender's address, the sender's name, and last the addressee.
+const isTegami = text => /【手紙データ】/.test(text);
+const TEGAMI_KEYS = ["日付", "宛名", "敬称", "場面", "かたさ", "書き方", "向き", "罫線", "住所", "名前", "結語"];
+function parseTegami(text) {
+  text = text.replace(/\r\n?/g, "\n").replace(/```[a-z]*\n?/g, "");
+  const s = text.indexOf("【手紙データ】"), e = text.indexOf("【ここまで】");
+  if (s >= 0) text = text.slice(s + "【手紙データ】".length, e > s ? e : undefined);
+  const f = { body: [] };
+  let inBody = false, para = [];
+  const flush = () => { if (para.length) { f.body.push(para.join("")); para = []; } };
+  for (const raw of text.split("\n")) {
+    const t = raw.trim();
+    const m = t.match(/^([^：:\s]{1,4})\s*[：:]\s*(.*)$/);
+    if (m && m[1] === "本文") { inBody = true; if (m[2].trim()) para.push(m[2].trim()); continue; }
+    if (m && TEGAMI_KEYS.includes(m[1])) { flush(); inBody = false; f[m[1]] = m[2].trim(); continue; }
+    if (!inBody) continue;
+    if (!t) { flush(); continue; }
+    if (/^(敬具|謹白|草々|かしこ|敬白|拝具)$/.test(t)) { f.closingWritten = t; continue; }
+    para.push(t.replace(/^[　 ]+/, ""));
+  }
+  flush();
+  return f;
+}
+// Numbers in vertical text: 1–2 digits stand upright side by side (縦中横); longer ones become 〇一二… ; "-" between
+// numbers in an address becomes a vertical dash.
+const KD = "〇一二三四五六七八九";
+function kanjiSmall(n) {  // 0–99 → 十一 style (for dates)
+  if (n < 10) return KD[n];
+  const t = Math.floor(n / 10), o = n % 10;
+  return (t > 1 ? KD[t] : "") + "十" + (o ? KD[o] : "");
+}
+function tateDate(d) {
+  return d.replace(/\d+/g, x => x.length <= 2 ? kanjiSmall(Number(x)) : [...x].map(c => KD[c]).join(""));
+}
+function tateHtml(raw) {  // raw text in, HTML out ("<br>" in the text still breaks the line)
+  return String(raw).split(/<br\s*\/?>/i).map(part => esc(part
+      .replace(/[A-Za-z]/g, c => String.fromCharCode(c.charCodeAt(0) + 0xFEE0))
+      .replace(/(\d)[‐－\-ー―−](?=\d)/g, "$1―"))
+    .replace(/\d[\d,，]*/g, x => { const n = x.replace(/[,，]/g, ""); return n.length <= 2 ? `<span class="tcy">${n}</span>` : [...n].map(c => KD[c]).join(""); }))
+    .join("<br>");
+}
+// Words to avoid: repeated words (重ね言葉) and direct words at a condolence; parting / breaking words at a celebration.
+const IMI = {
+  "お悔やみ": ["重ね重ね", "重ね々", "たびたび", "度々", "ますます", "益々", "次々", "再び", "再度", "続いて", "続く", "くれぐれも", "いよいよ", "返す返す", "追って", "再三", "またまた", "いろいろ", "色々", "死ぬ", "死亡", "死去", "生きて", "生存", "急死", "ご冥福", "浮かばれない", "迷う"],
+  "お祝い": ["切れる", "切る", "別れる", "離れる", "終わる", "終える", "去る", "戻る", "帰る", "出る", "壊れる", "破れる", "冷える", "飽きる", "再び", "重ね重ね", "たびたび", "度々", "くれぐれも", "繰り返し", "再度", "ふたたび"],
+};
+function renderTegami(raw) {
+  const f = parseTegami(raw);
+  const sender = senderFromInputs();
+  const page = document.getElementById("page");
+  const dv = (f["書き方"] || f["向き"] || "");
+  const tate = /横/.test(dv) ? false : /縦/.test(dv) ? true : document.getElementById("tegamiDir").value !== "yoko";
+  const rv = f["罫線"] || "";
+  const rule = /なし|off/i.test(rv) ? false : /あり|on/i.test(rv) ? true : document.getElementById("tegamiRule").value === "on";
+  page.className = "page tegami";
+  page.style.removeProperty("--sp");
+  document.getElementById("paper2").hidden = true;
+  document.getElementById("page2").innerHTML = "";
+  clearExtraAnnexPages(0);
+  annexUsed = false; annexPages = []; fitted = 1; shortLines = { fixed: 0, left: 0 };
+  const msgs = [], notes = [];
+  const scene = /悔|弔|喪|香典|偲/.test(f["場面"] || "") ? "お悔やみ" : /祝|慶|結婚|出産|入学|卒業|就職|昇進|長寿|新築/.test(f["場面"] || "") ? "お祝い" : "お礼";
+
+  const dateText = resolveDate(f["日付"]);
+  const month = monthOf(dateText);
+  let body = f.body.map(p => p.replace(/[{｛]時候[}｝]/g, SEASON[month][0] + "の候"));
+  const fillTags = t => t.replace(/[{｛]([^{}｛｝]{1,6})[}｝]/g, (all, name) => { const key = SENDER_TAGS[name]; return key ? (sender[key] || "") : all; });
+  body = body.map(fillTags);
+  const om = body.length ? body[0].match(/^(拝啓|謹啓|前略|拝復|一筆申し上げます)/) : null;
+  const opening = om && om[1];
+  const closing = f["結語"] || f.closingWritten || { "拝啓": "敬具", "謹啓": "謹白", "前略": "草々", "拝復": "敬具", "一筆申し上げます": "かしこ" }[opening] || "";
+
+  // checks
+  if (!f["宛名"]) msgs.push("宛名がありません。「宛名：」に相手の名前を書いてください。");
+  if (!body.length) msgs.push("本文がありません。");
+  const all = body.join("");
+  if (scene === "お悔やみ") {
+    if (opening) msgs.push(`お悔やみの手紙では「${opening}」などの頭語を書かず、すぐに本題から始めます。`);
+    if (/の候|候、/.test(all)) msgs.push("お悔やみの手紙では、時候のあいさつを入れません。");
+  }
+  const bad = (IMI[scene] || []).filter(w => all.includes(w));
+  if (bad.length) msgs.push(`${scene}の手紙では避けたい言葉があります：${bad.map(w => "「" + w + "」").join("")}`);
+
+  const tx = s => tate ? tateHtml(s) : esc(s);
+  const txBr = s => tate ? tateHtml(s) : escBr(s);
+  const name = (f["名前"] || sender["氏名"] || "").trim();
+  if (!name) msgs.push("差出人の名前がありません。下の「差出人」の氏名に入れるか、「名前：」に書いてください。");
+  const withAddr = /あり|入れる|on/i.test(f["住所"] || "");
+  const addr = withAddr ? [(sender["住所"] || "").replace(/[\s　]*／[\s　]*/g, "　"), sender["建物名"]].filter(Boolean).join("　") : "";
+  if (withAddr && !addr) msgs.push("「住所：あり」ですが、差出人の住所がありません。");
+  let to = (f["宛名"] || "").trim(), honor = (f["敬称"] || "").trim();
+  const hm = to.match(/^(.*?)[\s　]*(様|さま|さん|殿|先生|御中)$/);
+  if (hm && hm[1]) { to = hm[1]; honor = hm[2]; }
+  honor = honor || "様";
+
+  const lh = 12.5 * (tate ? 2.1 : 2);  // pt: the height of every line, and the spacing of the ruled lines
+  page.innerHTML = `<div class="tg${tate ? "" : " yoko"}${rule ? " rule" : ""}" style="--lh:${lh}pt">
+      ${body.map((p, i) => `<p class="${i === 0 && (opening || scene === "お悔やみ") ? "first" : ""}">${txBr(p)}</p>`).join("")}
+      ${closing ? `<div class="keigu">${esc(closing)}</div>` : ""}
+      <div class="t-date">${esc(tate ? tateDate(dateText) : dateText)}</div>
+      ${addr ? `<div class="t-addr">${tx(addr)}</div>` : ""}
+      ${name ? `<div class="t-name">${tx(name)}</div>` : ""}
+      ${to ? `<div class="t-to">${tx(to)}<span class="sama">${esc(honor)}</span></div>` : ""}
+    </div><div class="end"></div>`;
+  const tg = page.querySelector(".tg");
+  if (tate ? tg.scrollWidth > tg.clientWidth + 2 : tg.scrollHeight > tg.clientHeight + 2) msgs.push("1枚に収まっていません。本文を少し短くしてください。");
+  if (scene === "お悔やみ" && !msgs.length) notes.push("お悔やみの手紙として確認しました（頭語・時候なし、重ね言葉なし）。");
+  document.title = "手紙" + (to ? "_" + to.replace(/[\s　]/g, "") + honor : "");
+  document.getElementById("msg").innerHTML = msgs.map(t => `<span class="warn">${esc(t)}</span>`).concat(notes.map(t => `<span class="ok">${esc(t)}</span>`)).join("<br>")
+    || `<span class="ok">OK：手紙が1枚に収まっています（${tate ? "縦書き" : "横書き"}）。</span>`;
   try { localStorage.setItem("soufu-src", raw); } catch (e) {}
   onLocalChange();
 }
@@ -1570,7 +1797,7 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["tegamiDir", "soufu-tegamidir"], ["tegamiRule", "soufu-tegamirule"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
@@ -1602,7 +1829,7 @@ function applySender(o) {
 
 function collectState() {
   return { v: 1, current: { settings: collectSettings(), sender: senderFromInputs(), src: document.getElementById("src").value,
-                            srcLetter: srcSlots.letter, srcReceipt: srcSlots.receipt },
+                            srcLetter: srcSlots.letter, srcReceipt: srcSlots.receipt, srcTegami: srcSlots.tegami },
            formats, senders };
 }
 function applyState(d) {
@@ -1614,7 +1841,7 @@ function applyState(d) {
       applySettings(d.current.settings);
       applySender(d.current.sender);
       if (typeof d.current.src === "string") document.getElementById("src").value = d.current.src;
-      for (const [k, key, field] of [["letter", "soufu-src-letter", "srcLetter"], ["receipt", "soufu-src-receipt", "srcReceipt"]])
+      for (const [k, key, field] of [["letter", "soufu-src-letter", "srcLetter"], ["receipt", "soufu-src-receipt", "srcReceipt"], ["tegami", "soufu-src-tegami", "srcTegami"]])
         if (typeof d.current[field] === "string") { srcSlots[k] = d.current[field]; store.set(key, d.current[field]); }
       if (typeof d.current.src === "string") rememberSlot();
     }
@@ -1804,9 +2031,13 @@ function buildSender() {
 }
 
 // AI rules: the prompt that other AIs read, embedded below so it works offline and on GitHub Pages alike.
-function aiRules(kind) { return document.getElementById(kind === "receipt" ? "aiRulesReceipt" : "aiRules").textContent.replace(/^\n+/, ""); }
+function aiRules(kind) {
+  kind = kind || currentKind();
+  return document.getElementById({ receipt: "aiRulesReceipt", tegami: "aiRulesTegami" }[kind] || "aiRules").textContent.replace(/^\n+/, "");
+}
 function copyRules(kind) {
-  const what = kind === "receipt" ? "領収書のAI用ルール" : "AI用ルール";
+  kind = kind || currentKind();
+  const what = KIND_NAME[kind] + "のAI用ルール";
   const done = () => { document.getElementById("msg").innerHTML = `<span class="ok">${what}をコピーしました。AIの入力欄に貼りつけてください。</span>`; };
   if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(aiRules(kind)).then(done, fallback);
   else fallback();
@@ -1818,41 +2049,47 @@ function copyRules(kind) {
 function downloadRules(kind) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([aiRules(kind)], { type: "text/markdown;charset=utf-8" }));
-  a.download = kind === "receipt" ? "領収書ルール_AI用.md" : "送付状ルール_AI用.md";
+  kind = kind || currentKind();
+  a.download = KIND_NAME[kind] + "ルール_AI用.md";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 // 送付状 and 領収書 each keep their own text, so switching never loses the other one.
 // The tab follows the text: pasting 【領収書データ】 while on 送付状 moves to 領収書 (the 送付状 text stays as it was).
-var srcSlots = { letter: store.get("soufu-src-letter", null), receipt: store.get("soufu-src-receipt", null) };
+var srcSlots = { letter: store.get("soufu-src-letter", null), receipt: store.get("soufu-src-receipt", null), tegami: store.get("soufu-src-tegami", null) };
+const KIND_SAMPLE = () => ({ letter: SAMPLE, receipt: RECEIPT_SAMPLE, tegami: TEGAMI_SAMPLE });
+const KIND_NAME = { letter: "送付状", receipt: "領収書", tegami: "手紙" };
 var lastInputAt = 0;
-function currentKind() { return isReceipt(document.getElementById("src").value) ? "receipt" : "letter"; }
+const kindOf = v => isReceipt(v) ? "receipt" : isTegami(v) ? "tegami" : "letter";
+function currentKind() { return kindOf(document.getElementById("src").value); }
 function showKindTabs() {
   const k = currentKind();
-  document.getElementById("tabLetter").classList.toggle("on", k === "letter");
-  document.getElementById("tabReceipt").classList.toggle("on", k === "receipt");
-  document.getElementById("tabLetter").setAttribute("aria-selected", k === "letter");
-  document.getElementById("tabReceipt").setAttribute("aria-selected", k === "receipt");
+  for (const [id, kk] of [["tabLetter", "letter"], ["tabReceipt", "receipt"], ["tabTegami", "tegami"]]) {
+    document.getElementById(id).classList.toggle("on", k === kk);
+    document.getElementById(id).setAttribute("aria-selected", k === kk);
+  }
+  document.getElementById("copyRulesBtn").textContent = `AI用ルールをコピー（${KIND_NAME[k]}）`;
+  document.getElementById("dlRulesBtn").textContent = "ダウンロード";
 }
 function rememberSlot() {
   const v = document.getElementById("src").value;
   const k = currentKind();
   srcSlots[k] = v;
-  store.set(k === "receipt" ? "soufu-src-receipt" : "soufu-src-letter", v);
+  store.set("soufu-src-" + k, v);
 }
 function switchKind(k) {
   if (currentKind() === k) return;
   rememberSlot();
   const v = srcSlots[k];
-  const ok = typeof v === "string" && v.trim() && (k === "receipt") === isReceipt(v);
-  document.getElementById("src").value = ok ? v : (k === "receipt" ? RECEIPT_SAMPLE : SAMPLE);
+  const ok = typeof v === "string" && v.trim() && kindOf(v) === k;
+  document.getElementById("src").value = ok ? v : KIND_SAMPLE()[k];
   rememberSlot();
   render();
 }
 function loadSample(kind) {
   const k = kind || currentKind();
-  document.getElementById("src").value = k === "receipt" ? RECEIPT_SAMPLE : SAMPLE;
+  document.getElementById("src").value = KIND_SAMPLE()[k];
   rememberSlot();
   render();
 }
@@ -1878,7 +2115,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;

@@ -2,11 +2,12 @@
 # without fetching. Run after editing prompt.md or prompt_receipt.md.
 #   prompt.md          -> <script id="aiRules">        between AI_RULES_START / AI_RULES_END
 #   prompt_receipt.md  -> <script id="aiRulesReceipt"> between AI_RECEIPT_RULES_START / AI_RECEIPT_RULES_END
+#   prompt_tegami.md   -> <script id="aiRulesTegami">  between AI_TEGAMI_RULES_START / AI_TEGAMI_RULES_END
 import re, sys, pathlib
 html_path = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "index.html")
 marker = "---------- ここから下をAIに貼りつける ----------"
 html = html_path.read_text(encoding="utf-8")
-for md_name, tag, script_id in [("prompt.md", "AI_RULES", "aiRules"), ("prompt_receipt.md", "AI_RECEIPT_RULES", "aiRulesReceipt")]:
+for md_name, tag, script_id in [("prompt.md", "AI_RULES", "aiRules"), ("prompt_receipt.md", "AI_RECEIPT_RULES", "aiRulesReceipt"), ("prompt_tegami.md", "AI_TEGAMI_RULES", "aiRulesTegami")]:
     md = pathlib.Path(md_name).read_text(encoding="utf-8")
     rules = md.split(marker, 1)[1].strip() + "\n"
     assert "</script" not in rules.lower()
