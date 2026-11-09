@@ -152,7 +152,9 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 
 /* receipt (領収書): drawn when the pasted text starts with 【領収書データ】; fixed sizes, framed like a paper receipt */
 .page.receipt { padding: 20mm 20mm 0; line-height: 1.6; font-size: 11pt; }
-.rc { border: 0.75pt solid #000; padding: 10mm 13mm 11mm; }
+.rc { border: 0.75pt solid #000; padding: 10mm 13mm 11mm; position: relative; }
+/* the copy (控え) on page 2: a red circled 控 beside the title */
+.rc-copy { position: absolute; right: 14mm; top: 19mm; width: 15mm; height: 15mm; border: 1pt solid #c0392b; border-radius: 50%; color: #c0392b; font-size: 13pt; font-weight: 600; display: flex; align-items: center; justify-content: center; line-height: 1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .rc-top { display: flex; justify-content: space-between; font-size: 11pt; min-height: 1.6em; }
 .rc h1.rc-title { font-size: 24pt; font-weight: 600; letter-spacing: 0.6em; margin: 6mm 0 0 0.6em; text-align: center; line-height: 1.4; }
 .rc-to { margin-top: 8mm; width: 112mm; border-bottom: 0.75pt solid #000; padding: 0 2mm 1mm; font-size: 14pt; display: flex; align-items: flex-end; gap: 6mm; line-height: 1.5; }
@@ -357,6 +359,11 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
           <option value="on">入れる</option>
           <option value="off">入れない（日付と見出しだけ）</option>
         </select>
+        <label for="receiptCopy">領収書の控え</label>
+        <select id="receiptCopy">
+          <option value="on">つくる（印刷すると2枚目に ◯控 つきで出る）</option>
+          <option value="off">つくらない</option>
+        </select>
         <label for="listStyle">同封物の番号</label>
         <select id="listStyle">
           <option value="1.">1.　2.　3.</option>
@@ -509,6 +516,7 @@ HTMLやデザインは作らないでください。
 - 差出人の肩書：（例：売主。なければ空欄）
 - 事業としての受け取りか：はい／いいえ（はい で5万円以上なら収入印紙の枠を出す）
 - はんこを押す場所：いる／いらない（大きいはんこなら大きさも。例：30mm）
+- 控え：いる／いらない（ふつうは いる）
 - 消費税：（インボイスなど、税込金額のうち消費税を書きたいときだけ。例：10%）
 - 登録番号：（インボイスの登録番号 T＋13桁。なければ空欄）
 
@@ -554,6 +562,7 @@ HTMLやデザインは作らないでください。
 - 受領方法：「銀行振込」「現金」など。書くと「上記の金額を、銀行振込にて正に領収いたしました。」になる
 - 収入印紙：事業としての受け取りで、金額が5万円以上なら「あり」。それ以外は「なし」
 - 印の欄：はんこを押す場所をあけておくときは「あり」（大きいはんこなら「30mm」のように大きさを書く）。画面にはうすい点線が出るが、印刷には出ない
+- 控え：ふつうは書かない（印刷すると2枚目に「◯控」つきの控えが自動で出る）。控えがいらないと【入力】にあるときだけ「控え：なし」と書く
 - 消費税・登録番号：【入力】にあるときだけ書く（例：消費税：10%／登録番号：T1234567890123）。なければ行ごと消す
 - 出力は【出力の形】のコードブロック1つだけ。説明を足すなら、そのあとに3行以内
 </script>
@@ -967,7 +976,7 @@ function render() {
 const isReceipt = text => /【領収書データ】/.test(text);
 // "印" is accepted but ignored (the red seal mark was dropped), so older data does not break.
 // "印の欄" leaves a blank square for pressing a seal: あり = 27mm, or a size such as 30mm.
-const RECEIPT_KEYS = ["印の欄", "日付", "番号", "宛名", "会社名", "部署", "敬称", "金額", "但し", "受領方法", "肩書", "登録番号", "収入印紙", "印", "消費税", "タイトル",
+const RECEIPT_KEYS = ["控え", "印の欄", "日付", "番号", "宛名", "会社名", "部署", "敬称", "金額", "但し", "受領方法", "肩書", "登録番号", "収入印紙", "印", "消費税", "タイトル",
   "郵便番号", "住所", "建物名", "差出人会社名", "差出人部署", "氏名", "電話", "メール"];
 function parseReceipt(text) {
   text = text.replace(/\r\n?/g, "\n").replace(/```[a-z]*\n?/g, "");
@@ -1008,8 +1017,7 @@ function renderReceipt(raw) {
   const page = document.getElementById("page");
   page.className = "page receipt";
   page.style.removeProperty("--sp");
-  document.getElementById("paper2").hidden = true;
-  document.getElementById("page2").innerHTML = "";
+  const page2 = document.getElementById("page2");
   clearExtraAnnexPages(0);
   annexUsed = false; annexPages = []; fitted = 1; shortLines = { fixed: 0, left: 0 };
 
@@ -1094,12 +1102,19 @@ function renderReceipt(raw) {
     </div>
     ${f.notes.length ? `<div class="rc-notes">${f.notes.map(n => `<div>${escBr(n)}</div>`).join("")}</div>` : ""}
     <div class="end"></div>`;
+  // 控え: the same receipt again on page 2 with a circled 控. The data line 控え：あり／なし overrides the setting.
+  const cv = f["控え"] || "";
+  const copyOn = /なし|いらない|off/i.test(cv) ? false : /あり|つくる|作る|on/i.test(cv) ? true : document.getElementById("receiptCopy").value === "on";
+  document.getElementById("paper2").hidden = !copyOn;
+  page2.style.cssText = "";
+  page2.className = "page receipt annex";
+  page2.innerHTML = copyOn ? page.innerHTML.replace('<div class="rc">', '<div class="rc"><div class="rc-copy">控</div>') : "";
   if (!f["但し"]) msgs.push("但し書き（何の代金か）がありません。「但し：○○代として」と書いてください。");
   if (total === null) notes.push("金額が入っていません。手書きで入れるときは、そのまま印刷できます。");
   if (overflows(page)) msgs.push("1枚に収まっていません。内訳や説明を短くしてください。");
   document.title = (f["タイトル"] || "領収書") + (toName ? "_" + toName.replace(/[\s　]/g, "") + honor : "");
   document.getElementById("msg").innerHTML = msgs.map(t => `<span class="warn">${esc(t)}</span>`).concat(notes.map(t => `<span class="ok">${esc(t)}</span>`)).join("<br>")
-    || `<span class="ok">OK：領収書が1枚に収まっています。${total !== null ? `金額は ${yen(total)}円 です。` : ""}</span>`;
+    || `<span class="ok">OK：領収書が1枚に収まっています。${total !== null ? `金額は ${yen(total)}円 です。` : ""}${copyOn ? "2枚目に控えを作りました（印刷は2枚）。" : ""}</span>`;
   try { localStorage.setItem("soufu-src", raw); } catch (e) {}
   onLocalChange();
 }
@@ -1529,7 +1544,7 @@ var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
 const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
-  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
+  ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
 function collectSettings() {
@@ -1797,7 +1812,7 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
