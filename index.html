@@ -194,12 +194,15 @@ ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; }
 .tg .t-to .persons .sama { margin-inline-start: 0; }
 .tg .t-to .ghost { visibility: hidden; }
 .tg.f-local { font-family: var(--local-font), "SoufuSerif"; }
-.tg.rule { -webkit-print-color-adjust: exact; print-color-adjust: exact;
-  background-image: repeating-linear-gradient(to left, transparent 0, transparent calc(var(--lh) - 0.6pt), #d9c9b0 calc(var(--lh) - 0.6pt), #d9c9b0 var(--lh)); }
+/* ruled lines: real lines (borders), one per text line. A background gradient was dropped or thinned unevenly when
+   printed to PDF, so each line is its own element. */
+.tg { position: relative; }
+.tg .rules { position: absolute; inset: 0; pointer-events: none; }
+.tg .rules i { position: absolute; top: 0; bottom: 0; width: 0; border-left: 0.6pt solid #d9c9b0; }
+.tg.yoko .rules i { top: auto; bottom: auto; left: 0; right: 0; width: auto; height: 0; border-left: 0; border-top: 0.6pt solid #d9c9b0; }
 .tg.yoko { writing-mode: horizontal-tb; width: auto; height: 249mm; }
 .tg.yoko .t-date { text-indent: 1em; }
 .tg.yoko .t-addr, .tg.yoko .t-name { text-align: right; padding-right: 0; }
-.tg.yoko.rule { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--lh) - 0.6pt), #d9c9b0 calc(var(--lh) - 0.6pt), #d9c9b0 var(--lh)); }
 
 /* receipt (領収書): drawn when the pasted text starts with 【領収書データ】; fixed sizes, framed like a paper receipt */
 .page.receipt { padding: 20mm 20mm 0; line-height: 1.6; font-size: calc(11pt * var(--rk, 1)); }
@@ -1453,7 +1456,14 @@ function renderTegami(raw) {
       ${jointHtml ? `<div class="t-to">${jointHtml}</div>` : to ? `<div class="t-to">${tx(to)}<span class="sama">${esc(honor)}</span></div>` : ""}
     </div><div class="end"></div>`;
   const tg = page.querySelector(".tg");
-  if (useLocal) tg.style.setProperty("--local-font", JSON.stringify(localName));  // quoted, so any name is safe
+  if (useLocal) tg.style.setProperty("--local-font", JSON.stringify(localName));
+  if (rule) {
+    // one line at the end of every text line: from the right edge (縦書き) or the top (横書き), every --lh
+    const box = tate ? tg.clientWidth : tg.clientHeight, step = lh * 96 / 72;  // pt → px
+    const n = Math.floor((box + 0.5) / step);
+    tg.insertAdjacentHTML("afterbegin", `<div class="rules" aria-hidden="true">${Array.from({ length: n }, (_, i) =>
+      `<i style="${tate ? "right" : "top"}:${((i + 1) * lh - 0.6).toFixed(2)}pt"></i>`).join("")}</div>`);
+  }  // quoted, so any name is safe
   if (tate ? tg.scrollWidth > tg.clientWidth + 2 : tg.scrollHeight > tg.clientHeight + 2) msgs.push("1枚に収まっていません。本文を少し短くしてください。");
   // The pen / brush fonts are large: until they arrive the screen (and a print) would fall back to 明朝.
   const family = { pen: "SoufuPen", fude: "SoufuFude" }[font];
