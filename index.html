@@ -56,6 +56,13 @@ summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .grid select { font: inherit; padding: 3px 6px; border: 1px solid #bbb; border-radius: 6px; }
 .grid input[type=number] { width: 72px; font: inherit; padding: 3px 6px; border: 1px solid #bbb; border-radius: 6px; }
 .grid .localfont { display: flex; gap: 4px; }
+/* the font list opens as its own full-width row of the settings grid, right under フォントの名前 */
+.lf-pick { grid-column: 1 / -1; max-height: 340px; overflow-y: auto; background: #fff; border: 1px solid #bbb; border-radius: 8px; padding: 4px; }
+.lf-pick button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.lf-pick button:hover { background: #eef5ee; }
+.lf-pick .lf-name { display: block; font-size: 11px; color: #777; }
+.lf-pick .lf-sample { display: block; font-size: 18px; line-height: 1.4; color: #000; }
+.lf-pick .lf-head, .lf-pick .lf-foot { font-size: 11px; color: #666; padding: 4px 8px; }
 .grid .localfont input { width: 150px; font: inherit; padding: 3px 6px; border: 1px solid #bbb; border-radius: 6px; }
 .grid .localfont button { font: inherit; font-size: 12px; padding: 2px 8px; }
 .grid .unit { color: #666; margin-left: 4px; }
@@ -451,8 +458,8 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
           <option value="local">このパソコンのフォント</option>
         </select>
         <label for="tegamiLocal">フォントの名前</label>
-        <span class="localfont"><input id="tegamiLocal" list="localFontList" placeholder="例：游教科書体" autocomplete="off"><button type="button" id="localFontBtn" onclick="readLocalFonts()">一覧</button></span>
-        <datalist id="localFontList"></datalist>
+        <span class="localfont"><input id="tegamiLocal" placeholder="例：游教科書体" autocomplete="off"><button type="button" id="localFontBtn" onclick="readLocalFonts()">一覧</button></span>
+        <div id="localFontPick" class="lf-pick" hidden></div>
         <label for="tegamiRule">手紙の罫線</label>
         <select id="tegamiRule">
           <option value="off">なし</option>
@@ -2193,6 +2200,7 @@ function showKindSettings(k) {
     label.hidden = !on;
     const ctl = document.getElementById(id);
     (ctl.closest(".localfont") || ctl).hidden = !on;
+    if (id === "tegamiLocal" && !on) document.getElementById("localFontPick").hidden = true;
   }
   for (const el of document.querySelectorAll(".editor [data-kind]")) el.hidden = el.dataset.kind !== k;
   document.getElementById("listBoxKind").textContent = `（${KIND_NAME[k]}）`;
@@ -2224,19 +2232,44 @@ function setTegamiDir(d) {
   }
   render();
 }
-// List this computer's fonts (Chrome / Edge: Local Font Access, asks once). Japanese names come first.
+// List this computer's fonts (Chrome / Edge: Local Font Access, asks once): only the ones that can write Japanese,
+// each shown in itself. Fonts the user installed and Adobe Fonts (while Creative Cloud is running) are included.
 // Other browsers: type the name; it works the same.
+let localFonts = null;
+function hasJapanese(fam) {
+  // Draw kana/kanji in the font with a generic fallback and compare with the fallback alone: a font without
+  // Japanese falls through to the same fallback and draws the same pixels. Two fallbacks, so a font that happens
+  // to be the fallback itself is still caught.
+  const c = hasJapanese.c || (hasJapanese.c = Object.assign(document.createElement("canvas"), { width: 72, height: 30 }));
+  const x = c.getContext("2d", { willReadFrequently: true });
+  const draw = font => { x.clearRect(0, 0, 72, 30); x.font = font; x.fillText("永あア", 0, 24); return x.getImageData(0, 0, 72, 30).data; };
+  const same = (a, b) => { for (let i = 3; i < a.length; i += 4) if (a[i] !== b[i]) return false; return true; };
+  const q = JSON.stringify(fam);
+  return !same(draw(`24px ${q}, monospace`), draw("24px monospace")) || !same(draw(`24px ${q}, serif`), draw("24px serif"));
+}
 async function readLocalFonts() {
+  const box = document.getElementById("localFontPick");
+  if (!box.hidden) { box.hidden = true; return; }
   if (!window.queryLocalFonts) { alert("このブラウザでは一覧を読めません。フォントの名前を入力してください（例：游教科書体、ヒラギノ明朝 ProN）。Chrome なら一覧から選べます。"); return; }
   try {
-    const fams = [...new Set((await queryLocalFonts()).map(f => f.family))];
-    const jp = n => /[^\x00-\x7f]/.test(n);
-    fams.sort((a, b) => (jp(b) - jp(a)) || a.localeCompare(b, "ja"));
-    document.getElementById("localFontList").innerHTML = fams.map(n => `<option value="${esc(n)}">`).join("");
-    const inp = document.getElementById("tegamiLocal");
-    inp.focus(); if (inp.showPicker) try { inp.showPicker(); } catch (e) {}
+    if (!localFonts) {
+      const fams = [...new Set((await queryLocalFonts()).map(f => f.family))].sort((a, b) => a.localeCompare(b, "ja"));
+      localFonts = fams.filter(hasJapanese);
+    }
+    box.innerHTML = `<div class="lf-head">日本語が書けるフォント（${localFonts.length}こ）</div>` +
+      localFonts.map(n => `<button type="button" data-f="${esc(n)}"><span class="lf-name">${esc(n)}</span><span class="lf-sample" style="font-family:${esc(JSON.stringify(n))}">ありがとうございました</span></button>`).join("") +
+      `<div class="lf-foot">Adobe Fonts は、Creative Cloud を開いてフォントを「追加」しているあいだ、ここに出ます。</div>`;
+    box.hidden = false;
   } catch (e) { alert("フォントの一覧を読めませんでした（許可がないか、このページでは使えません）。名前を入力してください。"); }
 }
+document.getElementById("localFontPick").addEventListener("click", e => {
+  const b = e.target.closest("button[data-f]");
+  if (!b) return;
+  const inp = document.getElementById("tegamiLocal");
+  inp.value = b.dataset.f;
+  e.currentTarget.hidden = true;
+  inp.dispatchEvent(new Event("input"));
+});
 // Print only after every font the sheet uses has arrived (the letter fonts are several MB).
 function printWhenReady() {
   const fams = new Set();
