@@ -129,6 +129,7 @@ ol li .item { word-break: auto-phrase; overflow-wrap: anywhere; padding-right: 3
 .page.to-noline .to { border-bottom: none; }
 .page.items-solid ol li { border-bottom: 0.5pt solid #888; }
 .page.items-noline ol li { border-bottom: none; }
+.page.items-subsmall ol li .item .sub { font-size: 0.8em; }
 ol li.gap { margin-top: calc(0.5em + 0.7em * var(--sp)); }
 ol li .n { min-width: 8mm; padding-right: 2mm; flex: none; white-space: nowrap; }
 ol li .item { flex: 1; }
@@ -410,6 +411,11 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
           <option value="solid">実線</option>
           <option value="off">なし</option>
         </select>
+        <label for="itemSub">同封物の2行目（//のあと）</label>
+        <select id="itemSub">
+          <option value="same">同じ大きさ</option>
+          <option value="small">小さく</option>
+        </select>
         <label for="annex">同封物の別紙</label>
         <select id="annex">
           <option value="auto">入りきらないときだけ</option>
@@ -571,7 +577,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 - 本文：「拝啓」の段落から始める（【入力】で拝啓が「なし」なら、拝啓の段落を書かずに用件から始める）。
   「敬具」は書かない（拝啓で始まっていれば自動で入る）。段落の頭の字下げも不要（自動）
 - 同封物：1行に1つ。「名前｜数量」の形（｜は全角の縦線）。番号は書かない（自動）。種類がちがうもの（贈る品物と参考資料など）を分けたいときは、そのあいだに空行を1つ入れると、少し間があく
-  名前が長いときは、区切りのいいところに「//」を入れると、そこで改行される（例：ゲームソフト「○○」//ダウンロードカード｜1枚）
+  名前が長いときは、区切りのいいところに「//」を入れると、そこで改行される（例：ゲームソフト「○○」//ダウンロードカード｜1枚）。番号などの補足も「//」のあとに書く（例：ギフトカード（5,000円分）//カード番号：GCA…｜1枚）
 - スタイル・かざり・たぬお：プレゼントやお祝いなど、楽しい送付状にしたいときだけ書く
   （例：スタイル：ポップ／かざり：クリスマス・お誕生日・お礼・季節おまかせ／たぬお：あり）。ふつうの送付状では書かない
 - 別紙：同封物を2枚目の「同封物一覧」に出したいときは「別紙：あり」、出したくないときは「別紙：なし」。書かなければ、入りきらないときだけ自動で別紙になる
@@ -880,6 +886,8 @@ function listStyleKey(v) {
 const BR = /&lt;br\s*\/?&gt;/gi;
 const escBr = s => esc(s).replace(BR, "<br>");
 const escItem = s => escBr(s).replace(/\s*(\/\/|／／)\s*/g, "<br>");
+// Enclosure names: the lines after "//" are wrapped so the 同封物の2行目 setting can set them smaller.
+const itemHtml = s => { const [a, ...rest] = escBr(s).split(/\s*(?:\/\/|／／)\s*/); return a + rest.map(x => `<br><span class="sub">${x}</span>`).join(""); };
 // In a body, a line that ends with "//" (or ／／) breaks the line there without starting a new paragraph.
 const brEnd = t => t.replace(/[\s　]*(\/\/|／／)$/, "<br>");
 
@@ -1084,7 +1092,7 @@ function render() {
   const marker = LIST_STYLES[listStyleKey(f["番号"]) || document.getElementById("listStyle").value] || LIST_STYLES["1."];
   // Items from..to (numbered as in the whole list); the notes and 以上 only on the last part, "（つづく）" otherwise.
   const listHtml = (from = 0, to = f.items.length) => `<ol>` +
-    f.items.slice(from, to).map((it, j) => { const i = from + j; return `<li${it.gap && j > 0 ? ' class="gap"' : ""}>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${escItem(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`; }).join("") +
+    f.items.slice(from, to).map((it, j) => { const i = from + j; return `<li${it.gap && j > 0 ? ' class="gap"' : ""}>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${itemHtml(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`; }).join("") +
     `</ol>` + (to < f.items.length ? `<div class="cont">（つづく）</div>`
       : f.notes.map(n => `<div class="note">${escBr(n)}</div>`).join("") + `<div class="ijo">以上</div>`);
   const annexName = document.getElementById("annexName").value || "同封物";
@@ -1913,7 +1921,7 @@ var saveTimer = null, lastJson = "";
 var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
-const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"],
+const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"], ["itemSub", "soufu-itemsub"],
   ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["receiptSize", "soufu-receiptsize"], ["tegamiSize", "soufu-tegamisize"], ["tegamiDir", "soufu-tegamidir"], ["tegamiFont", "soufu-tegamifont"], ["tegamiLocal", "soufu-tegamilocal"], ["tegamiRule", "soufu-tegamirule"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
@@ -2308,8 +2316,9 @@ function applyLines() {
   page.classList.toggle("to-noline", to === "off");
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
+  page.classList.toggle("items-subsmall", document.getElementById("itemSub").value === "small");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["receiptSize", "soufu-receiptsize", "1"], ["tegamiSize", "soufu-tegamisize", "12.5"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiFont", "soufu-tegamifont", "pen"], ["tegamiLocal", "soufu-tegamilocal", ""], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["itemSub", "soufu-itemsub", "same"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["receiptSize", "soufu-receiptsize", "1"], ["tegamiSize", "soufu-tegamisize", "12.5"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiFont", "soufu-tegamifont", "pen"], ["tegamiLocal", "soufu-tegamilocal", ""], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
