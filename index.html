@@ -129,6 +129,7 @@ ol li .item { word-break: auto-phrase; overflow-wrap: anywhere; padding-right: 3
 .page.to-noline .to { border-bottom: none; }
 .page.items-solid ol li { border-bottom: 0.5pt solid #888; }
 .page.items-noline ol li { border-bottom: none; }
+ol li.gap { margin-top: calc(0.5em + 0.7em * var(--sp)); }
 ol li .n { min-width: 8mm; padding-right: 2mm; flex: none; white-space: nowrap; }
 ol li .item { flex: 1; }
 ol li .qty { width: 16mm; flex: none; text-align: right; align-self: flex-end; } /* on the last line when the name wraps */
@@ -569,7 +570,7 @@ HTMLやデザインは作らないでください。文章だけでOKです。
 - 敬称：個人・担当者あては「様」、会社や部署だけにあてるときは「御中」、複数の人にまとめてあてるときは「各位」（例：宛名「関係者」＋敬称「各位」→ 関係者各位。「各位様」のように重ねない）
 - 本文：「拝啓」の段落から始める（【入力】で拝啓が「なし」なら、拝啓の段落を書かずに用件から始める）。
   「敬具」は書かない（拝啓で始まっていれば自動で入る）。段落の頭の字下げも不要（自動）
-- 同封物：1行に1つ。「名前｜数量」の形（｜は全角の縦線）。番号は書かない（自動）
+- 同封物：1行に1つ。「名前｜数量」の形（｜は全角の縦線）。番号は書かない（自動）。種類がちがうもの（贈る品物と参考資料など）を分けたいときは、そのあいだに空行を1つ入れると、少し間があく
   名前が長いときは、区切りのいいところに「//」を入れると、そこで改行される（例：ゲームソフト「○○」//ダウンロードカード｜1枚）
 - スタイル・かざり・たぬお：プレゼントやお祝いなど、楽しい送付状にしたいときだけ書く
   （例：スタイル：ポップ／かざり：クリスマス・お誕生日・お礼・季節おまかせ／たぬお：あり）。ふつうの送付状では書かない
@@ -890,7 +891,7 @@ function parse(text) {
   const s = text.indexOf("【送付状データ】"), e = text.indexOf("【ここまで】");
   if (s >= 0) text = text.slice(s + "【送付状データ】".length, e > s ? e : undefined);
   const f = { body: [], items: [], notes: [] };
-  let mode = null, para = [], lastKey = null;
+  let mode = null, para = [], lastKey = null, gapNext = false;
   const flush = () => { if (para.length) { f.body.push(para.join("")); para = []; } };
   for (let raw of text.split("\n")) {
     const line = raw.replace(/\s+$/, "");
@@ -922,9 +923,11 @@ function parse(text) {
       if (t) f.notes.push(t);
     } else if (mode === "items") {
       const t = line.trim().replace(/^([-・*]|\d+[.．、)）])\s*/, "");
-      if (!t) continue;
+      // A blank line between items opens a small gap there (e.g. the gift, then the reference papers).
+      if (!t) { if (f.items.length) gapNext = true; continue; }
       const parts = t.split(/[｜|]/);
-      f.items.push({ name: parts[0].trim(), qty: (parts[1] || "").trim() });
+      f.items.push({ name: parts[0].trim(), qty: (parts[1] || "").trim(), gap: gapNext });
+      gapNext = false;
     }
   }
   flush();
@@ -1081,7 +1084,7 @@ function render() {
   const marker = LIST_STYLES[listStyleKey(f["番号"]) || document.getElementById("listStyle").value] || LIST_STYLES["1."];
   // Items from..to (numbered as in the whole list); the notes and 以上 only on the last part, "（つづく）" otherwise.
   const listHtml = (from = 0, to = f.items.length) => `<ol>` +
-    f.items.slice(from, to).map((it, j) => { const i = from + j; return `<li>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${escItem(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`; }).join("") +
+    f.items.slice(from, to).map((it, j) => { const i = from + j; return `<li${it.gap && j > 0 ? ' class="gap"' : ""}>${marker(i + 1) ? `<span class="n">${marker(i + 1)}</span>` : ""}<span class="item">${escItem(it.name)}</span><span class="qty">${esc(it.qty)}</span></li>`; }).join("") +
     `</ol>` + (to < f.items.length ? `<div class="cont">（つづく）</div>`
       : f.notes.map(n => `<div class="note">${escBr(n)}</div>`).join("") + `<div class="ijo">以上</div>`);
   const annexName = document.getElementById("annexName").value || "同封物";
