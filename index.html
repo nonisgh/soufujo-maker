@@ -130,6 +130,7 @@ ol li .item { word-break: auto-phrase; overflow-wrap: anywhere; padding-right: 3
 .page.items-solid ol li { border-bottom: 0.5pt solid #888; }
 .page.items-noline ol li { border-bottom: none; }
 .page.items-subsmall ol li .item .sub { font-size: 0.8em; }
+.page.qty-middle ol li .qty { align-self: center; }
 ol li.gap { margin-top: calc(0.5em + 0.7em * var(--sp)); }
 ol li .n { min-width: 8mm; padding-right: 2mm; flex: none; white-space: nowrap; }
 ol li .item { flex: 1; }
@@ -415,6 +416,11 @@ table.rc-tbl { margin: 6mm auto 0; width: 132mm; border-collapse: collapse; font
         <select id="itemSub">
           <option value="same">同じ大きさ</option>
           <option value="small">小さく</option>
+        </select>
+        <label for="itemQty">2行のときの数量</label>
+        <select id="itemQty">
+          <option value="bottom">下の行にそろえる</option>
+          <option value="middle">2行の真ん中</option>
         </select>
         <label for="annex">同封物の別紙</label>
         <select id="annex">
@@ -1921,7 +1927,7 @@ var saveTimer = null, lastJson = "";
 var formats = store.get("soufu-formats", {});
 var senders = store.get("soufu-senders", {});
 
-const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"], ["itemSub", "soufu-itemsub"],
+const SETTING_SELECTS = [["mode", "soufu-mode"], ["toLine", "soufu-toline"], ["itemLine", "soufu-itemline"], ["itemSub", "soufu-itemsub"], ["itemQty", "soufu-itemqty"],
   ["fromName", "soufu-fromname"], ["fromTel", "soufu-fromtel"], ["fromAddr2", "soufu-fromaddr2"], ["mailLabel", "soufu-maillabel"], ["annex", "soufu-annex"], ["annexName", "soufu-annexname"], ["annexHead", "soufu-annexhead"], ["receiptCopy", "soufu-receiptcopy"], ["receiptSize", "soufu-receiptsize"], ["tegamiSize", "soufu-tegamisize"], ["tegamiDir", "soufu-tegamidir"], ["tegamiFont", "soufu-tegamifont"], ["tegamiLocal", "soufu-tegamilocal"], ["tegamiRule", "soufu-tegamirule"], ["listStyle", "soufu-list"], ["renmei", "soufu-renmei"],
   ["style", "soufu-style"], ["deco", "soufu-deco"], ["tanuo", "soufu-tanuo"]];
 
@@ -2317,8 +2323,9 @@ function applyLines() {
   page.classList.toggle("items-solid", it === "solid");
   page.classList.toggle("items-noline", it === "off");
   page.classList.toggle("items-subsmall", document.getElementById("itemSub").value === "small");
+  page.classList.toggle("qty-middle", document.getElementById("itemQty").value === "middle");
 }
-for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["itemSub", "soufu-itemsub", "same"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["receiptSize", "soufu-receiptsize", "1"], ["tegamiSize", "soufu-tegamisize", "12.5"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiFont", "soufu-tegamifont", "pen"], ["tegamiLocal", "soufu-tegamilocal", ""], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
+for (const [id, key, def] of [["toLine", "soufu-toline", "on"], ["itemLine", "soufu-itemline", "dotted"], ["itemSub", "soufu-itemsub", "same"], ["itemQty", "soufu-itemqty", "bottom"], ["fromName", "soufu-fromname", "left"], ["fromTel", "soufu-fromtel", "left"], ["fromAddr2", "soufu-fromaddr2", "left"], ["mailLabel", "soufu-maillabel", "E-mail"], ["annex", "soufu-annex", "auto"], ["annexName", "soufu-annexname", "同封物"], ["annexHead", "soufu-annexhead", "on"], ["receiptCopy", "soufu-receiptcopy", "on"], ["receiptSize", "soufu-receiptsize", "1"], ["tegamiSize", "soufu-tegamisize", "12.5"], ["tegamiDir", "soufu-tegamidir", "tate"], ["tegamiFont", "soufu-tegamifont", "pen"], ["tegamiLocal", "soufu-tegamilocal", ""], ["tegamiRule", "soufu-tegamirule", "off"], ["style", "soufu-style", "formal"], ["deco", "soufu-deco", "none"], ["tanuo", "soufu-tanuo", "off"]]) {
   const el = document.getElementById(id);
   el.value = store.get(key, def);
   if (!el.value) el.value = def;
